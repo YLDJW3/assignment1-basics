@@ -161,3 +161,8 @@ cython_debug/
 
 .ruff_cache/
 *.zip
+
+data/
+tests/count.txt
+tests/output.txt
+cs336_basics/output.txt
