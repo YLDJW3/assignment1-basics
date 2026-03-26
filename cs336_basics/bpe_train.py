@@ -2,6 +2,7 @@ import os
 import logging
 import regex as re
 from collections.abc import Iterator
+from functools import partial
 from multiprocessing import Pool
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
@@ -50,25 +51,24 @@ def train_bpe(
     # 2. Split the file into chunks by special token
     chunks = get_chunks(special_tokens, CPU_NUM, input_path)
     log.debug(f"split into {len(chunks)} chunks")
-    # 3. Parallel pre-tokenize
     with Pool(CPU_NUM) as p:
-        pre_token_array = p.map(pre_tokenize, chunks)
-    log.debug(f"pre-tokenize done, got {len(pre_token_array)} pre tokens")
-    # 4. Generate initialize token pair count and index
-    pre_tokens = [t for pre_token in pre_token_array for t in pre_token]
-    pair_count, pair_index = initialize_token_pair_count_and_index(pre_tokens)
-    log.debug(f"initialize token pair count and index done, got {len(pair_count)} token pairs")
-    # 5. Iteratively count highest token pair, update pair_count and pair_index
-    while len(vocabulary) < vocab_size:
-        # count highest token pair
-        highest_pair = get_highest_token_pair(pair_count)
-        # update merges and vocabulary
-        merges.append(highest_pair)
-        vocabulary.append(highest_pair[0] + highest_pair[1])
-        log.debug(f"{len(merges)} merge {merges[-1]}, vocab size is {len(vocabulary)}")
-        # update pair_count and pair_index
-        pair_count, pair_index = update_token_pair_count_and_index(highest_pair, pair_count, pair_index)
-        log.debug(f"{len(merges)} update token pair count and index done, got {len(pair_count)} token pairs")
+        # 3. Pre-tokenize
+        pre_tokens = p.map(pre_tokenize, chunks)
+        log.debug(f"pre-tokenize done, got {len(pre_tokens)} pre tokens")
+        # 4. Generate initialize token pair count and index
+        pair_count_and_index  = p.map(initialize_token_pair_count_and_index, pre_tokens)
+        log.debug(f"initialize token pair count and index done")
+        # 5. Iteratively count highest token pair, update pair_count and pair_index
+        while len(vocabulary) < vocab_size:
+            # count highest token pair
+            highest_pair = get_highest_token_pair(pair_count_and_index)
+            # update merges and vocabulary
+            merges.append(highest_pair)
+            vocabulary.append(highest_pair[0] + highest_pair[1])
+            log.debug(f"{len(merges)} merge {merges[-1]}, vocab size is {len(vocabulary)}")
+            # update pair_count and pair_index
+            pair_count_and_index = p.starmap(partial(update_token_pair_count_and_index, highest_pair), pair_count_and_index)
+            log.debug(f"{len(merges)} update token pair count and index done")
     vocab = {}
     for i in range(len(vocabulary)):
         vocab[i] = vocabulary[i]
@@ -134,13 +134,19 @@ def initialize_token_pair_count_and_index(pre_tokens: Iterator[str]):
     return pairs_count, pairs_index
 
 
-def get_highest_token_pair(pair_count: dict[tuple[bytes, bytes], int]) -> tuple[bytes, bytes]:
+def get_highest_token_pair(pair_count_and_index: list[tuple[dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], set[int]]]]) -> tuple[bytes, bytes]:
     """
     get token pair with highest frequency
     prefer the lexicographically greater pair when tie
     """
     highest_count = 0
     highest_pair = None
+    aggregate_counter = {} 
+    for pair_count, _ in pair_count_and_index:
+        for pair, count in pair_count.items():
+            if pair not in aggregate_counter:
+                aggregate_counter[pair] = 0
+            aggregate_counter[pair] += count
     for pair, count in pair_count.items():
         if count > highest_count:
             highest_pair = pair

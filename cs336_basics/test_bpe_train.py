@@ -71,29 +71,29 @@ def test_initialize_token_pair_count_and_index(input_path):
 
 
 @pytest.mark.parametrize(
-    "input_path, pair_count, expected",
+    "input_path, pair_count_and_index, expected",
     [
-        ("data/test_get_chunks_1.txt", {}, (bytes([32]), bytes([116]))),
-        ("data/test_get_chunks_2.txt", {}, (bytes([32]), bytes([116]))),
+        ("data/test_get_chunks_1.txt", [], (bytes([32]), bytes([116]))),
+        ("data/test_get_chunks_2.txt", [], (bytes([32]), bytes([116]))),
         (
             "",
-            {(bytes([32]), bytes([116])): 100, (bytes([100]), bytes([116])): 50},
+            ({(bytes([32]), bytes([116])): 100, (bytes([100]), bytes([116])): 50}, None),
             (bytes([32]), bytes([116])),
         ),
         (
             "",
-            {(bytes([32]), bytes([116])): 100, (bytes([100]), bytes([116])): 100},
+            ({(bytes([32]), bytes([116])): 100, (bytes([100]), bytes([116])): 100}, None),
             (bytes([100]), bytes([116])),
         ),
     ],
 )
-def test_get_highest_token_pair(input_path, pair_count, expected):
+def test_get_highest_token_pair(input_path, pair_count_and_index, expected):
     if input_path != "":
         chunks = get_chunks([SPECIAL_TOKEN], 1, input_path)
         assert len(chunks) == 1
         pre_tokens = pre_tokenize(chunks[0])
-        pair_count, _ = initialize_token_pair_count_and_index(pre_tokens)
-    highest_pair = get_highest_token_pair(pair_count)
+        pair_count_and_index = initialize_token_pair_count_and_index(pre_tokens)
+    highest_pair = get_highest_token_pair([pair_count_and_index])
     assert highest_pair == expected
 
 
@@ -109,7 +109,7 @@ def test_update_token_pair_count_and_index(input_path, expected_highest_pair):
     assert len(chunks) == 1
     pre_tokens = pre_tokenize(chunks[0])
     pair_count, pair_index = initialize_token_pair_count_and_index(pre_tokens)
-    highest_pair = get_highest_token_pair(pair_count)
+    highest_pair = get_highest_token_pair([(pair_count, pair_index)])
     assert highest_pair == expected_highest_pair
     updated_count, updated_index = update_token_pair_count_and_index(highest_pair, pair_count, pair_index)
     assert updated_count.keys() == updated_index.keys()
@@ -142,7 +142,7 @@ def test_update_token_pair_count_and_index(input_path, expected_highest_pair):
 def test_update_token_pair_count_and_index_raw(
     pair_count, pair_index, expected_highest_pair, expected_updated_count, expected_updated_index
 ):
-    highest_pair = get_highest_token_pair(pair_count)
+    highest_pair = get_highest_token_pair([(pair_count, pair_index)])
     assert highest_pair == expected_highest_pair
     updated_count, updated_index = update_token_pair_count_and_index(highest_pair, pair_count, pair_index)
     assert updated_count == expected_updated_count
@@ -154,8 +154,8 @@ def test_update_token_pair_count_and_index_raw(
     [
         # ("data/test_get_chunks_1.txt", 258, [SPECIAL_TOKEN], [(bytes([32]), bytes([116]))]),
         # ("data/test_get_chunks_2.txt", 300, [SPECIAL_TOKEN], []),
-        # ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], []),
-        ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], []),
+        ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], []),
+        # ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], []),
     ],
 )
 def test_train_bpe(input_path, vocab_size, special_tokens, expected_merge):
