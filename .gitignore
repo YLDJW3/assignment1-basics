@@ -165,5 +165,7 @@ cython_debug/
 data/
 tests/*.txt
 cs336_basics/*.txt
-!cs336_basics/*.log
-!cs336_basics/*-merge.txt
+cs336_basics/*.json
+!cs336_basics/TinyStrories-GPT4-train-10_000vocab-8C.log
+!cs336_basics/TinyStrories-GPT4-train-10_000vocab-8C-merge.txt
+!cs336_basics/TinyStrories-GPT4-train-10_000vocab-8C-vocab.json

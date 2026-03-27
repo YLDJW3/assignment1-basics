@@ -2,6 +2,7 @@ import pytest
 import json
 from collections import Counter
 from cs336_basics.bpe_train import *
+from tests.common import gpt2_bytes_to_unicode
 
 
 SPECIAL_TOKEN = "<|endoftext|>"
@@ -157,7 +158,7 @@ def test_update_token_pair_count_and_index_raw(
     "input_path, vocab_size, special_tokens, name",
     [
         # ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], ""),
-        ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], ""),
+        ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-200M"),
         # ("data/TinyStoriesV2-GPT4-train-400M.txt", 300, [SPECIAL_TOKEN], ""),
         # ("data/TinyStoriesV2-GPT4-train-1000M.txt", 500, [SPECIAL_TOKEN], ""),
         # ("data/TinyStoriesV2-GPT4-train.txt", 10_000, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-10_000Vocab-8C"),
@@ -171,8 +172,12 @@ def test_train_bpe(input_path, vocab_size, special_tokens, name):
     # profiler.print_stats(sort='tottime')
     assert len(vocab) == vocab_size
     if name != "":
-        with open(f"cs336_basics/{name}.json", "w") as f:
-            json.dump({k: v.decode("utf-8", errors="replace") for k, v in vocab.items()}, f, indent=4)
-        with open(f"cs336_basics/{name}.txt", "w") as f:
+        m = gpt2_bytes_to_unicode()
+        with open(f"cs336_basics/{name}-vocab.json", "w") as f:
+            json.dump({"".join(m[b] for b in v): k for k, v in vocab.items()}, f, indent=4, ensure_ascii=False)
+
+        with open(f"cs336_basics/{name}-merge.txt", "w") as f:
             for a, b in merge:
-                f.write(f"{a.decode('utf-8', errors='replace')} {b.decode('utf-8', errors='replace')}\n")
+                a_str = "".join(m[byte] for byte in a)
+                b_str = "".join(m[byte] for byte in b)
+                f.write(f"{a_str} {b_str}\n")
