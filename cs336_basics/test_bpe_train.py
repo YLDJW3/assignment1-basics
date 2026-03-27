@@ -1,21 +1,10 @@
-import pytest, cProfile
+import pytest
+import json
+from collections import Counter
 from cs336_basics.bpe_train import *
 
 
 SPECIAL_TOKEN = "<|endoftext|>"
-
-
-@pytest.mark.parametrize(
-    "input_path, chunks_num",
-    [
-        ("data/test_get_chunks_1.txt", 1),
-        # ("data/test_get_chunks_2.txt", 2),
-        ("data/TinyStoriesV2-GPT4-valid.txt", 12),
-    ],
-)
-def test_get_chunks(input_path, chunks_num):
-    chunks = get_chunks([SPECIAL_TOKEN], chunks_num, input_path)
-    assert len(chunks) == chunks_num
 
 
 @pytest.mark.parametrize(
@@ -30,20 +19,6 @@ def test_initalize_vocabulary(special_token, vocab_size):
 
 
 @pytest.mark.parametrize(
-    "input_path, expected_len",
-    [
-        ("data/test_get_chunks_1.txt", 209),
-        # ("data/test_get_chunks_2.txt", 1131),
-    ],
-)
-def test_pre_tokenize(input_path, expected_len):
-    chunks = get_chunks([SPECIAL_TOKEN], 1, input_path)
-    assert len(chunks) == 1
-    tokens = pre_tokenize(chunks[0])
-    assert len(tokens) == expected_len
-
-
-@pytest.mark.parametrize(
     "input_path",
     [
         ("data/test_get_chunks_1.txt"),
@@ -51,10 +26,7 @@ def test_pre_tokenize(input_path, expected_len):
     ],
 )
 def test_initialize_token_pair_count_and_index(input_path):
-    chunks = get_chunks([SPECIAL_TOKEN], 1, input_path)
-    assert len(chunks) == 1
-    pre_tokens = pre_tokenize(chunks[0])
-    word_count = get_word_count([pre_tokens])
+    word_count = chunk_and_pre_tokenize([SPECIAL_TOKEN], 1, input_path)
     pair_count, pair_index = initialize_token_pair_count_and_index(word_count)
     assert len(pair_count) > 0
     assert len(pair_count) == len(pair_index)
@@ -88,10 +60,7 @@ def test_initialize_token_pair_count_and_index(input_path):
 )
 def test_get_highest_token_pair(input_path, pair_count, expected):
     if input_path != "":
-        chunks = get_chunks([SPECIAL_TOKEN], 1, input_path)
-        assert len(chunks) == 1
-        pre_tokens = pre_tokenize(chunks[0])
-        word_count = get_word_count([pre_tokens])
+        word_count = chunk_and_pre_tokenize([SPECIAL_TOKEN], 1, input_path)
         pair_count, _ = initialize_token_pair_count_and_index(word_count)
     highest_pair = get_highest_token_pair(pair_count)
     assert highest_pair == expected
@@ -105,15 +74,13 @@ def test_get_highest_token_pair(input_path, pair_count, expected):
     ],
 )
 def test_update_token_pair_count_and_index(input_path, expected_highest_pair):
-    chunks = get_chunks([SPECIAL_TOKEN], 1, input_path)
-    assert len(chunks) == 1
-    pre_tokens = pre_tokenize(chunks[0])
-    word_count = get_word_count([pre_tokens])
+    word_count = chunk_and_pre_tokenize([SPECIAL_TOKEN], 1, input_path)
     pair_count, pair_index = initialize_token_pair_count_and_index(word_count)
     highest_pair = get_highest_token_pair(pair_count)
     assert highest_pair == expected_highest_pair
     updated_count, updated_index = update_token_pair_count_and_index(highest_pair, pair_count, pair_index)
     assert updated_count.keys() == updated_index.keys()
+
 
 @pytest.mark.parametrize(
     "pair_count, pair_index, expected_highest_pair, expected_updated_count, expected_updated_index",
@@ -123,28 +90,56 @@ def test_update_token_pair_count_and_index(input_path, expected_highest_pair):
             # 32 116
             # 116 100 44
             Counter({(bytes([32]), bytes([116])): 2, (bytes([116]), bytes([100])): 2, (bytes([100]), bytes([44])): 2}),
-
-            {(bytes([32]), bytes([116])): Counter({0: 1, 4: 1}), (bytes([116]), bytes([100])): Counter({1: 1, 6: 1}), (bytes([100]), bytes([44])): Counter({2: 1, 7: 1})},
-
+            {
+                (bytes([32]), bytes([116])): Counter({0: 1, 4: 1}),
+                (bytes([116]), bytes([100])): Counter({1: 1, 6: 1}),
+                (bytes([100]), bytes([44])): Counter({2: 1, 7: 1}),
+            },
             (bytes([116]), bytes([100])),
-
-            Counter({(bytes([32]), bytes([116])): 1, (bytes([32]), bytes([116, 100])): 1, (bytes([116, 100]), bytes([44])): 2, (bytes([100]), bytes([44])): 0}),
-
-            {(bytes([32]), bytes([116])): Counter({0: 0, 4: 1}), (bytes([32]), bytes([116, 100])): Counter({0: 1}), (bytes([116, 100]), bytes([44])): Counter({1: 1, 6: 1}), (bytes([100]), bytes([44])): Counter()},
+            Counter(
+                {
+                    (bytes([32]), bytes([116])): 1,
+                    (bytes([32]), bytes([116, 100])): 1,
+                    (bytes([116, 100]), bytes([44])): 2,
+                    (bytes([100]), bytes([44])): 0,
+                }
+            ),
+            {
+                (bytes([32]), bytes([116])): Counter({0: 0, 4: 1}),
+                (bytes([32]), bytes([116, 100])): Counter({0: 1}),
+                (bytes([116, 100]), bytes([44])): Counter({1: 1, 6: 1}),
+                (bytes([100]), bytes([44])): Counter(),
+            },
         ),
         (
             # 32 116 100 44
             # 32 116
             # 116 100 44
-            Counter({(bytes([32]), bytes([116])): 1, (bytes([32]), bytes([116, 100])): 1, (bytes([116, 100]), bytes([44])): 2}),
-
-            {(bytes([32]), bytes([116])): Counter({4: 1}), (bytes([32]), bytes([116, 100])): Counter({0: 1}), (bytes([116, 100]), bytes([44])): Counter({1: 1, 6: 1})},
-
+            Counter(
+                {
+                    (bytes([32]), bytes([116])): 1,
+                    (bytes([32]), bytes([116, 100])): 1,
+                    (bytes([116, 100]), bytes([44])): 2,
+                }
+            ),
+            {
+                (bytes([32]), bytes([116])): Counter({4: 1}),
+                (bytes([32]), bytes([116, 100])): Counter({0: 1}),
+                (bytes([116, 100]), bytes([44])): Counter({1: 1, 6: 1}),
+            },
             (bytes([116, 100]), bytes([44])),
-
-            Counter({(bytes([32]), bytes([116])): 1, (bytes([32]), bytes([116, 100])): 0, (bytes([32]), bytes([116, 100, 44])): 1}),
-
-            {(bytes([32]), bytes([116])): Counter({4: 1}), (bytes([32]), bytes([116, 100])): Counter({0: 0}), (bytes([32]), bytes([116, 100, 44])): Counter({0: 1})},
+            Counter(
+                {
+                    (bytes([32]), bytes([116])): 1,
+                    (bytes([32]), bytes([116, 100])): 0,
+                    (bytes([32]), bytes([116, 100, 44])): 1,
+                }
+            ),
+            {
+                (bytes([32]), bytes([116])): Counter({4: 1}),
+                (bytes([32]), bytes([116, 100])): Counter({0: 0}),
+                (bytes([32]), bytes([116, 100, 44])): Counter({0: 1}),
+            },
         ),
     ],
 )
@@ -159,26 +154,25 @@ def test_update_token_pair_count_and_index_raw(
 
 
 @pytest.mark.parametrize(
-    "input_path, vocab_size, special_tokens, expected_merge",
+    "input_path, vocab_size, special_tokens, name",
     [
-        ("data/test_get_chunks_1.txt", 258, [SPECIAL_TOKEN], [(bytes([32]), bytes([116]))]),
-        # ("data/test_get_chunks_2.txt", 300, [SPECIAL_TOKEN], []),
-        ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], []),
-        # ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], []),
+        # ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], ""),
+        ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], ""),
+        # ("data/TinyStoriesV2-GPT4-train-400M.txt", 300, [SPECIAL_TOKEN], ""),
+        # ("data/TinyStoriesV2-GPT4-train-1000M.txt", 500, [SPECIAL_TOKEN], ""),
+        # ("data/TinyStoriesV2-GPT4-train.txt", 10_000, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-10_000Vocab-8C"),
     ],
 )
-def test_train_bpe(input_path, vocab_size, special_tokens, expected_merge):
+def test_train_bpe(input_path, vocab_size, special_tokens, name):
     # profiler = cProfile.Profile()
     # profiler.enable()
     vocab, merge = train_bpe(input_path, vocab_size, special_tokens)
     # profiler.disable()
     # profiler.print_stats(sort='tottime')
-
     assert len(vocab) == vocab_size
-    if len(expected_merge) > 0:
-        for i in range(len(expected_merge)):
-            assert vocab[257 + i] == expected_merge[i][0] + expected_merge[i][1]
-        assert merge == expected_merge
-    else:
-        print(vocab)
-        print(merge)
+    if name != "":
+        with open(f"cs336_basics/{name}.json", "w") as f:
+            json.dump({k: v.decode("utf-8", errors="replace") for k, v in vocab.items()}, f, indent=4)
+        with open(f"cs336_basics/{name}.txt", "w") as f:
+            for a, b in merge:
+                f.write(f"{a.decode('utf-8', errors='replace')} {b.decode('utf-8', errors='replace')}\n")

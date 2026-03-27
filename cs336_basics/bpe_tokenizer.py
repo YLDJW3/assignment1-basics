@@ -3,7 +3,9 @@ from bpe_train import pre_tokenize
 
 
 class Tokenizer:
-    def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None):
+    def __init__(
+        self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None
+    ):
         self.vocab = vocab
         self.merges = merges
         self.special_tokens = special_tokens
@@ -21,7 +23,6 @@ class Tokenizer:
         # 3. apply the merges in order
         # 4. encode them into IDs by vocab
         pass
-
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
         """

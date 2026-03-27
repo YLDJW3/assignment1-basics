@@ -1,8 +1,8 @@
-import os, json
+import os
 import logging
 import regex as re
-from collections.abc import Iterator
 from collections import Counter
+from functools import partial
 from multiprocessing import Pool
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
@@ -21,6 +21,7 @@ def train_bpe(
     input_path: str | os.PathLike,
     vocab_size: int,
     special_tokens: list[str],
+    cpu_num: int = CPU_NUM,
     **kwargs,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """
@@ -48,18 +49,13 @@ def train_bpe(
     # 1. Initialize vocabulary
     vocabulary = initalize_vocabulary(special_tokens)
     merges = []
-    # 2. Split the file into chunks by special token
-    chunks = get_chunks(special_tokens, CPU_NUM, input_path)
-    log.debug(f"split into {len(chunks)} chunks")
-    # 3. Parallel pre-tokenize
-    with Pool(CPU_NUM) as p:
-        pre_token_chunks = p.map(pre_tokenize, chunks)
-    log.debug(f"pre-tokenize done, got {len(pre_token_chunks)} pre token chunks")
-    # 4. Generate initialize token pair count and index
-    word_count = get_word_count(pre_token_chunks)
+    # 2. Pre-tokenize
+    word_count = chunk_and_pre_tokenize(special_tokens, CPU_NUM, input_path)
+    log.debug("pre-tokenize done")
+    # 3. Generate initialize token pair count and index
     pair_count, pair_index = initialize_token_pair_count_and_index(word_count)
     log.debug(f"initialize token pair count and index done, got {len(pair_count)} token pairs")
-    # 5. Iteratively count highest token pair, update pair_count and pair_index
+    # 4. Iteratively count highest token pair, update pair_count and pair_index
     while len(vocabulary) < vocab_size:
         # count highest token pair
         highest_pair = get_highest_token_pair(pair_count)
@@ -75,17 +71,6 @@ def train_bpe(
         vocab[i] = vocabulary[i]
     return vocab, merges
 
-def get_word_count(word_chunks: list[list[str]]) -> Counter:
-    """
-    different token pairs in identical words have the same effect 
-    dedup by word count improve training efficiency
-    """
-    word_count = Counter()
-    for chunk in word_chunks:
-        for word in chunk:
-            word_count[word] += 1
-    return word_count
-    
 
 def initalize_vocabulary(special_tokens: list[str]) -> list[bytes]:
     """
@@ -98,29 +83,49 @@ def initalize_vocabulary(special_tokens: list[str]) -> list[bytes]:
     return vocabulary
 
 
-def get_chunks(special_tokens: list[str], chunk_num: int, input_path: str | os.PathLike) -> list[str]:
+def chunk_and_pre_tokenize(special_tokens: list[str], chunk_num: int, input_path: str | os.PathLike) -> list[str]:
     """
-    split data into chunks, splited by special tokens
+    split data into chunks by special tokens
     """
-    pattern = "|".join([re.escape(special_token) for special_token in special_tokens])
+    # use first special token as chunk boundary
+    first_speical_token = special_tokens[0].encode("utf-8")
     with open(input_path, "rb") as f:
-        # use first special token as chunk boundary
-        first_speical_token = special_tokens[0].encode('utf-8')
         boundaries = find_chunk_boundaries(f, chunk_num, first_speical_token)
-        chunks = []
-        for start, end in zip(boundaries[:-1], boundaries[1:]):
-            f.seek(start)
-            chunk = f.read(end - start).decode("utf-8", errors="ignore")
-            chunks.append("".join(re.split(pattern, chunk)))
-        return chunks
+        log.debug(f"split into {len(boundaries) - 1} chunks")
+        with Pool(chunk_num) as p:
+            pre_token_counters = p.starmap(
+                partial(pre_tokenize_by_offset, special_tokens, input_path), zip(boundaries[:-1], boundaries[1:])
+            )
+        return get_word_count(pre_token_counters)
 
 
-def pre_tokenize(data: str, pattern: str = PAT) -> list[str]:
+def get_word_count(word_counters: list[Counter]) -> Counter:
+    """
+    different token pairs in identical words have the same effect
+    dedup by word count improve training efficiency
+    """
+    word_count = Counter()
+    for counter in word_counters:
+        for word in counter:
+            word_count[word] += counter[word]
+    return word_count
+
+
+def pre_tokenize_by_offset(special_tokens: list[str], input_path: str, start: int, end: int) -> Counter:
     """
     regex-based pre-tokenizer
     https://github.com/openai/tiktoken/pull/234/changes
     """
-    return [m.group() for m in re.finditer(pattern, data)]
+    spliter = "|".join([re.escape(special_token) for special_token in special_tokens])
+    counter = Counter()
+    with open(input_path, "rb") as file:
+        file.seek(start)
+        chunk = file.read(end - start).decode("utf-8", errors="ignore")
+        chunks = re.split(spliter, chunk)
+        for chunk in chunks:
+            for m in re.finditer(PAT, chunk):
+                counter[m.group()] += 1
+        return counter
 
 
 def initialize_token_pair_count_and_index(word_count: Counter) -> tuple[Counter, dict[tuple[bytes, bytes], Counter]]:
@@ -142,8 +147,6 @@ def initialize_token_pair_count_and_index(word_count: Counter) -> tuple[Counter,
             pairs_count[pair] += word_count[word]
             pairs_index[pair][start + i] += word_count[word]
         start += word_bytes
-    with open('cs336_basics/pairs_index.json', 'w') as f:
-        json.dump({str(k): v for k, v in pairs_index.items()}, f, indent=4)
     return pairs_count, pairs_index
 
 
@@ -185,7 +188,7 @@ def update_token_pair_count_and_index(
                 merged_pair = (highest_pair[0] + highest_pair[1], pair[1])
                 highest_pair_first_token_bytes = len(highest_pair[0])
                 # iterate pair instead of highest_pair first, reducing iterate times
-                for idx in pair_index[pair].copy():    
+                for idx in pair_index[pair].copy():
                     count = pair_index[pair][idx]
                     highest_pair_start = idx - highest_pair_first_token_bytes
                     if highest_pair_start in pair_index[highest_pair]:
