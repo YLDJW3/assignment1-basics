@@ -99,13 +99,21 @@ def test_encode_decode_roundtrip(tokenizer: Tokenizer, texts: list[str]):
 @pytest.mark.parametrize(
     "vocab_filepath, merges_filepath, special_tokens, input_filepath, output_filepath, token_num",
     [
+        # (
+        #     "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-vocab.json",
+        #     "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-merge.txt",
+        #     [SPECIAL_TOKEN],
+        #     "data/TinyStoriesV2-GPT4-valid.txt",
+        #     "data/TinyStoriesV2-GPT4-valid-tokens.npy",
+        #     5469572,
+        # ),
         (
             "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-vocab.json",
             "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-merge.txt",
             [SPECIAL_TOKEN],
-            "data/TinyStoriesV2-GPT4-valid.txt",
-            "data/TinyStoriesV2-GPT4-valid-tokens.npy",
-            5469572,
+            "data/TinyStoriesV2-GPT4-train.txt",
+            "data/TinyStoriesV2-GPT4-train-tokens.npy",
+            0,
         )
     ],
 )
@@ -113,8 +121,35 @@ def test_encode_and_save_np_array(
     vocab_filepath, merges_filepath, special_tokens, input_filepath, output_filepath, token_num
 ):
     tokenizer = Tokenizer.from_files(Tokenizer, vocab_filepath, merges_filepath, special_tokens)
+    chunk_size = 64*1024*1024
+    max_tokens = 600_000_000
+    buffer = ""
+    offset = 0
+    bin_path = output_filepath.replace(".npy", ".bin")
+    fp = np.memmap(bin_path, dtype=np.uint16, mode="w+", shape=(max_tokens,))
     with open(input_filepath) as f:
-        tokens = tokenizer.encode(f.read())
-        np.save(output_filepath, tokens)
-        if token_num > 0:
-            assert len(tokens) == token_num
+        while True:
+            data = f.read(chunk_size)
+            if not data:
+                if buffer:
+                   token_ids = tokenizer.encode(buffer)
+                   fp[offset: offset + len(token_ids)] = token_ids
+                   offset += len(token_ids)
+                break
+            buffer += data
+            last_nl = buffer.rfind('\n')
+            if last_nl != -1:
+                token_ids = tokenizer.encode(buffer[:last_nl + 1])
+                fp[offset: offset + len(token_ids)] = token_ids
+                offset += len(token_ids)
+                buffer = buffer[last_nl+1:]
+    fp.flush()
+    final = np.memmap(bin_path, dtype=np.uint16, mode="r+", shape=(offset,))
+    final.flush()
+    np.save(output_filepath, np.array(final))
+
+    if token_num > 0:
+        assert offset == token_num
+    else:
+        log.info(f"token num {offset}")
+    

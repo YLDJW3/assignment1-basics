@@ -18,6 +18,9 @@ class Tokenizer:
         self.id_2_token = vocab
         self.token_2_id = {token: _id for _id, token in vocab.items()}
         self.merges = merges
+        self.merge_map = {}
+        for i in range(len(merges)):
+            self.merge_map[merges[i]] = i
         self.pattern = PAT
         self.special_tokens = set()
         self.spliter = None
@@ -61,7 +64,7 @@ class Tokenizer:
         # 3. apply merges in order and output token IDs
         for chunk in chunks:
             for token in chunk:
-                res.extend(self.merge(token))
+                res.extend(self.fast_merge(token))
         return res
 
     def pre_tokenize(self, text: str) -> list[str]:
@@ -85,7 +88,7 @@ class Tokenizer:
                     yield self.token_2_id[text.encode("utf-8")]
                     continue
                 for word in re.finditer(self.pattern, text):
-                    for token in self.merge(word.group()):
+                    for token in self.fast_merge(word.group()):
                         yield token
 
     def decode(self, ids: list[int]) -> str:
@@ -98,10 +101,10 @@ class Tokenizer:
         return buf.getvalue().decode("utf-8", errors="replace")
 
     @lru_cache(maxsize=None)
-    def merge(self, word: str) -> list[int]:
+    def naive_merge(self, word: str) -> list[int]:
         """
-        apply all token pair merges in order
-        return token IDs
+        Naive merge: apply all token pair merges in order
+        Time complexity: O(word_size * merge_count)
         """
         if word in self.special_tokens:
             return [self.token_2_id[word.encode("utf-8")]]
@@ -121,5 +124,39 @@ class Tokenizer:
             if i == len(before) - 1:
                 after.append(before[i])
             before = after
-        # log.debug(f"word: {word}, tokens: {before}")
+        return [self.token_2_id[token] for token in before]
+
+    @lru_cache(maxsize=None)
+    def fast_merge(self, word: str) -> list[int]:
+        """
+        Priority-based merge: iterate every token pair to find the rank-first merge
+        Time complexity: O(word_size^2 * applied_merge_count)
+        """
+        if word in self.special_tokens:
+            return [self.token_2_id[word.encode("utf-8")]]
+        b = word.encode("utf-8")
+        before = [b[i : i + 1] for i in range(len(b))]
+        while True:
+            # find the best merge pair
+            min_rank = None
+            for i in range(len(before) - 1):
+                rank = self.merge_map.get((before[i], before[i+1]), None)
+                if rank is not None:
+                    if min_rank is None or rank < min_rank:
+                        min_rank = rank
+            if min_rank is None:
+                break
+            # apply the merge
+            after = []
+            i = 0
+            while i + 1 < len(before):
+                if (before[i], before[i + 1]) == self.merges[min_rank]:
+                    after.append(before[i] + before[i + 1])
+                    i += 2
+                else:
+                    after.append(before[i])
+                    i += 1
+            if i < len(before):
+                after.append(before[i])
+            before = after
         return [self.token_2_id[token] for token in before]

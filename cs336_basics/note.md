@@ -132,11 +132,23 @@ text into integer IDs and `decodes` integer IDs into text.
     Guess: compression ratio worse than using according tokenizer?
 3. Estimate the throughput of your tokenizer (e.g., in **bytes/second**). How long would it take to tokenize the Pile dataset (825GB of text)?
     TODO
-4. Using your TinyStories and OpenWebText tokenizers, encode the respective training and development datasets into a sequence of integer token IDs. We’ll use this later to train our language model. We recommend serializing the token IDs as a `NumPy` array of datatype `uint16`. Why is `uint16` an appropriate choice?⭕
+4. Using your TinyStories and OpenWebText tokenizers, encode the respective training and development datasets into a sequence of integer token IDs. We’ll use this later to train our language model. We recommend serializing the token IDs as a `NumPy` array of datatype `uint16`. Why is `uint16` an appropriate choice?✅
     Vocabulary size is larger than 256, but much smaller than 65536
 ### Implementation
 1. Encoding `TinyStoriesV2-GPT4-valid.txt` into np array takes **139.78s** on a 18C mac, implying under-optimization
 2. Optimization
     1. Set lru_cache maxsize to None, running time decreases to **23.27s**
     2. Parallel pre-tokenization and apply merge in main process, running time decreases to **17.08s** (`multiprocessing.Pool` do not share lru_cache)
-    3. Merge process optimization?
+3. Merge process optimization
+    1. After optimization, encoding `TinyStoriesV2-GPT4-train.txt` still takes 250s, and applying priority-based merge can reduce it to 148s
+    2. **Naive merge**: iterate every merge in order and compare the merge to every token pair in the word, time complexity is `O(word_size * merge_count)`
+    3. **Priority-based merge**: iterate every token pair in the word to find the rank-first merge, time complexity is `O(word_size^2 * applied_merge_count)`. If word_size * applied_merge_count < merge_count, this appoach is faster than naive approach.
+
+# Ref
+1. https://jalammar.github.io/illustrated-transformer/
+2. Attention is all you need https://arxiv.org/abs/1706.03762
+3. https://nlp.seas.harvard.edu/annotated-transformer/
+4. minGPT https://github.com/karpathy/minGPT
+5. nanoGPT
+6. nanoChat https://github.com/karpathy/nanochat
+7. https://karpathy.ai/zero-to-hero.html
