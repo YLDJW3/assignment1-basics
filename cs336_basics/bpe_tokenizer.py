@@ -140,7 +140,7 @@ class Tokenizer:
             # find the best merge pair
             min_rank = None
             for i in range(len(before) - 1):
-                rank = self.merge_map.get((before[i], before[i+1]), None)
+                rank = self.merge_map.get((before[i], before[i + 1]), None)
                 if rank is not None:
                     if min_rank is None or rank < min_rank:
                         min_rank = rank

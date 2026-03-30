@@ -58,8 +58,8 @@
     1. look up each ID’s corresponding entries in the vocabulary
     2. when input token IDs do not produce a valid Unicode string, replace the malformed bytes with the official Unicode replacement character `U+FFFD`
 
-# Answers
-## Problem (unicode1): Understanding Unicode (1 point)✅
+## Answers
+### Problem (unicode1): Understanding Unicode (1 point)✅
 1. What Unicode character does chr(0) return?
     '\x00'
 2. How does this character’s string representation (__repr__()) differ from its printed representation?
@@ -76,7 +76,7 @@ following in your Python interpreter and see if it matches your expectations:
 >>> print("this is a test" + chr(0) + "string")
 this is a teststring
 ```
-## Problem (unicode2): Unicode Encodings (3 points)✅
+### Problem (unicode2): Unicode Encodings (3 points)✅
 1. What are some reasons to prefer training our tokenizer on UTF-8 encoded bytes, rather than
 UTF-16 or UTF-32? It may be helpful to compare the output of these encodings for various
 input strings.
@@ -95,7 +95,7 @@ def decode_utf8_bytes_to_str_wrong(bytestring: bytes):
     1. `b'\xc0\x80'.decode('utf-8')` invalid start byte 
     2. `b'\xe4\xbd'.decode('utf-8')` unexpected end of data
     3. A two-byte unicode character requires the first byte to be `110xxxxx` and the second to be `10xxxxxx`, and each code point must use the **shortest byte sequence** that can represent it
-## Problem (train_bpe): BPE Tokenizer Training (15 points)✅
+### Problem (train_bpe): BPE Tokenizer Training (15 points)✅
 1. Optional optimization (large time-investment)
     - Implement the key parts of your training method using some **systems language**, for instance C++ (consider cppyy for this) or Rust (using PyO3)
     - Be aware of which operations require copying vs reading directly from Python memory, and make sure to leave build instructions, or make sure it builds using only pyproject.toml. 
@@ -108,13 +108,13 @@ def decode_utf8_bytes_to_str_wrong(bytestring: bytes):
     3. `re.finditer`: use `re.finditer` instead of `re.findAll`, store in counter can avoid storing all pre-tokens (Memory)
     4. iteration times: `update_token_pair_count_and_index` iterate current pair's index (instead of highest pair), reducint the iteration times (CPU)
 
-## Problem (train_bpe_tinystories): BPE Training on TinyStories (2 points)✅
+### Problem (train_bpe_tinystories): BPE Training on TinyStories (2 points)✅
 1. `TinyStoriesV2-GPT4-train-10_000vocab-8C.log`, traning takes 97s
 2. `TinyStoriesV2-GPT4-train-10_000vocab-8C-vocab.json`
 3. `TinyStoriesV2-GPT4-train-10_000vocab-8C-merge.txt`
-## Problem (train_bpe_expts_owt): BPE Training on OpenWebText (2 points)⭕
+### Problem (train_bpe_expts_owt): BPE Training on OpenWebText (2 points)⭕
 TODO
-## Problem (tokenizer): Implementing the tokenizer (15 points)✅
+### Problem (tokenizer): Implementing the tokenizer (15 points)✅
 1. Implement a `Tokenizer` class that, given a `vocabulary` and a list of `merges`, `encodes`
 text into integer IDs and `decodes` integer IDs into text. 
 2. Your tokenizer should also support user-provided special tokens (appending them to the vocabulary if they aren’t already there). We recommend the following interface
@@ -125,7 +125,7 @@ text into integer IDs and `decodes` integer IDs into text.
 1. Implement in `cs_336_basics/bpe_tokenizer.py`
 2. Test results in `tests/output_test_tokenizer.txt`
 
-## Problem (tokenizer_experiments): Experiments with tokenizers (4 points)
+### Problem (tokenizer_experiments): Experiments with tokenizers (4 points)
 1. Sample 10 documents from TinyStories and OpenWebText. Using your previously-trained TinyStories and OpenWebText tokenizers (10K and 32K vocabulary size, respectively), encode these sampled documents into integer IDs. What is each tokenizer’s **compression ratio** (bytes/token)
     TODO
 2. What happens if you tokenize your OpenWebText sample with the TinyStories tokenizer? Compare the compression ratio and/or qualitatively describe what happens
@@ -144,10 +144,92 @@ text into integer IDs and `decodes` integer IDs into text.
     2. **Naive merge**: iterate every merge in order and compare the merge to every token pair in the word, time complexity is `O(word_size * merge_count)`
     3. **Priority-based merge**: iterate every token pair in the word to find the rank-first merge, time complexity is `O(word_size^2 * applied_merge_count)`. If word_size * applied_merge_count < merge_count, this appoach is faster than naive approach.
 
+# Transformer model
+## Encoder: self-attention + feed forward
+1. Self-attention layer
+    1. Calculate query, key, value vectors for embedding vectors of words
+    2. Calculate scores by taking the dot product of query vector of current word with key vector of each word
+        When processing self-attention of word i, `socre_i_j = query_i * key_j` for every word j
+    3. Divide the scores by the squre root of dimension of they key vecotrs (by default is 8)
+    4. Softmax score determines how much each word will be expressed at this position
+    5. Multiply each value vactor by the softmax score to get weighted value vector
+    6. Sum up the weighted value vectors and get the output of the self-attention layer
+2. Matrix calculation of self-attention
+    1. Pack embeddings into a matrix `X`, multiply it by the weight matrices `W_Q, W_K, W_V` to get `Q, K, V` matrices: $Q = X @ W_Q, K = X @ W_K, V = X @ W_V$
+        - X is N * 512, where N is the number of input words
+        - W_Q, W_K, W_V are 512 * 64
+        - Q, K, V are N * 64
+    2. $Z = softmax(\frac{Q @ K.T}{\sqrt{d_k}})@V$
+        - Q @ K.T is N * N
+        - Z is N * 64
+3. Multi-headed attention
+    1. Multiple sets of W_Q/W_K/W_V matrices, each is randomly initialized (Transformer uses 8 sets of Q/K/V weight matrices)
+    2. Concat the matrices [Z_0 Z_1 ... Z_7], multiply by an additional matrix `W_O`
+        - [Z_0 Z_1 ... Z_7] is N * (64*8)
+        - W_O is (64*8) * 512
+        - the output matrix is N * 512, has the same size as embediing matrix
+4. Positional encoding
+    1. `X = t + X`, `t` is the positional encoding of N * 512
+    2. Positional encoding: interweave sine and cosine signals?
+5. Residuals
+    1. Each sub-layer (self-attention, ffnn) in each encoder has a **Residual & Normalize** step
+        $Z = LayerNorm(X + Z)$
+    2. Normalize keeps every layer's output at mean≈0, variance≈1, so each layer sees well-behaved inputs
+    3. Residual add the input back to the output, solve the gradients vanishing problem in deep learning
+## Decoder: self-attention + encoder-decoder attention + feed forward
+1. Self-attention layer is only allowed to attend to **earlier positions** in the output sequence
+2. Encoder-Decoder Attention: creates Q matrix from the layer below it, takes K and V matrix from the output of the encoder stack
+    ```
+    Q = **decoder_output** @ W_q
+    K = encoder_output @ W_k
+    V = encoder_output @ W_v
+    Z = softmax(Q @ K.T / sqrt(d_k)) @ V
+    output = LayerNorm(X + Z)
+    ```
+3. Final Linear and Softmax layer
+    1. The Linear layer is a fully connected neural network that projects the vector produced by the stack of decoders, into a much, much larger vector called a **logits vector**
+    2. For a model with 10_000 vocabs, the logits vector is 10_000 cells wide, each cell corresponding to the score of a unique word
+    3. The softmax layer turns scores into **probabilities**, add up to 1.0
+    4. The associated word of cell with highest probability is chosen as the output for the time step
+## Training loop
+1. Loss function
+    Cross-entropy: $H(P, Q) = -\Sigma{P_i * log(Q_i)}$
+    KL Divergence: $KL(P, Q) = \Sigma{P_i * log(P_i / Q_i)}$
+2. Greedy decoding: select the word with the highest probability and throwing away the rest
+3. Beam search: select the top `beam_size` words, run the model for `beam_size` times with those words and choose the best 
+
+# Transformer implementation
+input token embeddings -- transformer blocks -- output embedding -- softmax -- output probabilities
+## Token embedding
+1. input: a tensor of token IDs of shape `batch_size * sequence_length`
+2. output: a sequence of vectors of shape `batch_size * sequence_length * d_model`
+## Pre-norm Transformer block
+1. input: a tensor of shape `batch_size * sequence_length * d_model`
+2. output: a tensor of shape `batch_size * sequence_length * d_model`
+3. layers: pre-norm, self-attention, feed forward
+## Output normalization and embedding
+1. normalization layer
+2. learned linear transformation
+    input: a tensor of shape `batch_size * sequence_length * d_model`, output of the last transformer block
+    output: predicted next-token logits
+## Parameter Initialization
+1. Bad initialization can lead to issues like gradients vanishing or exploding
+2. Initialization have a siginificant impact on trainding speed and convergence
+## Linear Module
+1. Implement a Linear class that inherits from `torch.nn.Module` and performs a linear transformation. Your implementation should follow the interface of PyTorch’s built-in `nn.Linear` module, except for not having a `bias` argument or parameter
+2. Use `torch.nn.init.trunc_normal_` to initialize the weights
+
+## Embedding Module
+
 # Ref
-1. https://jalammar.github.io/illustrated-transformer/
+## Blogs
+1. https://jalammar.github.io/illustrated-transformer/ ✅
+2. https://nlp.seas.harvard.edu/annotated-transformer/ ✅
+3. PyTorch https://docs.pytorch.org/tutorials/index.html
+## Paper
+1. Attention mechanism https://arxiv.org/abs/1409.0473
 2. Attention is all you need https://arxiv.org/abs/1706.03762
-3. https://nlp.seas.harvard.edu/annotated-transformer/
+## Project
 4. minGPT https://github.com/karpathy/minGPT
 5. nanoGPT
 6. nanoChat https://github.com/karpathy/nanochat

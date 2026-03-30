@@ -121,7 +121,7 @@ def test_encode_and_save_np_array(
     vocab_filepath, merges_filepath, special_tokens, input_filepath, output_filepath, token_num
 ):
     tokenizer = Tokenizer.from_files(Tokenizer, vocab_filepath, merges_filepath, special_tokens)
-    chunk_size = 64*1024*1024
+    chunk_size = 64 * 1024 * 1024
     max_tokens = 600_000_000
     buffer = ""
     offset = 0
@@ -132,17 +132,17 @@ def test_encode_and_save_np_array(
             data = f.read(chunk_size)
             if not data:
                 if buffer:
-                   token_ids = tokenizer.encode(buffer)
-                   fp[offset: offset + len(token_ids)] = token_ids
-                   offset += len(token_ids)
+                    token_ids = tokenizer.encode(buffer)
+                    fp[offset : offset + len(token_ids)] = token_ids
+                    offset += len(token_ids)
                 break
             buffer += data
-            last_nl = buffer.rfind('\n')
+            last_nl = buffer.rfind("\n")
             if last_nl != -1:
-                token_ids = tokenizer.encode(buffer[:last_nl + 1])
-                fp[offset: offset + len(token_ids)] = token_ids
+                token_ids = tokenizer.encode(buffer[: last_nl + 1])
+                fp[offset : offset + len(token_ids)] = token_ids
                 offset += len(token_ids)
-                buffer = buffer[last_nl+1:]
+                buffer = buffer[last_nl + 1 :]
     fp.flush()
     final = np.memmap(bin_path, dtype=np.uint16, mode="r+", shape=(offset,))
     final.flush()
@@ -152,4 +152,3 @@ def test_encode_and_save_np_array(
         assert offset == token_num
     else:
         log.info(f"token num {offset}")
-    
