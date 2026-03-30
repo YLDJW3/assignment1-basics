@@ -158,10 +158,10 @@ def test_update_token_pair_count_and_index_raw(
     "input_path, vocab_size, special_tokens, name",
     [
         # ("data/TinyStoriesV2-GPT4-valid.txt", 300, [SPECIAL_TOKEN], ""),
-        ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-200M"),
+        # ("data/TinyStoriesV2-GPT4-train-200M.txt", 300, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-200M"),
         # ("data/TinyStoriesV2-GPT4-train-400M.txt", 300, [SPECIAL_TOKEN], ""),
         # ("data/TinyStoriesV2-GPT4-train-1000M.txt", 500, [SPECIAL_TOKEN], ""),
-        # ("data/TinyStoriesV2-GPT4-train.txt", 10_000, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-10_000Vocab-8C"),
+        ("data/TinyStoriesV2-GPT4-train.txt", 10_000, [SPECIAL_TOKEN], "TinyStoriesV2-GPT4-train-10_000vocab-8C"),
     ],
 )
 def test_train_bpe(input_path, vocab_size, special_tokens, name):

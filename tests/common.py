@@ -5,9 +5,11 @@ from functools import lru_cache
 
 FIXTURES_PATH = (pathlib.Path(__file__).resolve().parent) / "fixtures"
 
+
 @lru_cache
 def gp2_unicode_to_bytes() -> dict[str, int]:
     return {v: k for k, v in gpt2_bytes_to_unicode().items()}
+
 
 @lru_cache
 def gpt2_bytes_to_unicode() -> dict[int, str]:

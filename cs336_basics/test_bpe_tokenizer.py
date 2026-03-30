@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from cs336_basics.bpe_tokenizer import *
 from cs336_basics.test_bpe_train import SPECIAL_TOKEN
 
@@ -14,20 +15,24 @@ from cs336_basics.test_bpe_train import SPECIAL_TOKEN
     ],
 )
 def test_from_files(vocab_path, merge_path, special_tokens):
-    tokenizer = Tokenizer.from_files(Tokenizer, vocab_filepath=vocab_path, merges_filepath=merge_path, special_tokens=special_tokens)
+    tokenizer = Tokenizer.from_files(
+        Tokenizer, vocab_filepath=vocab_path, merges_filepath=merge_path, special_tokens=special_tokens
+    )
     assert len(tokenizer.id_2_token) == 300
     assert len(tokenizer.token_2_id) == 300
     assert len(tokenizer.merges) == 43
+
 
 @pytest.mark.parametrize(
     "tokenizer, text, expected",
     [
         (
-            Tokenizer.from_files(Tokenizer, 
-                                 vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json", 
-                                 merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt", 
-                                 special_tokens=[SPECIAL_TOKEN],
-                                 ),
+            Tokenizer.from_files(
+                Tokenizer,
+                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
+                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
+                special_tokens=[SPECIAL_TOKEN],
+            ),
             "hello",
             [258, 294, 111],
         ),
@@ -40,15 +45,17 @@ def test_encode(tokenizer, text, expected):
     else:
         print(got)
 
+
 @pytest.mark.parametrize(
     "tokenizer, tokens, expected",
     [
         (
-            Tokenizer.from_files(Tokenizer, 
-                                 vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json", 
-                                 merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt", 
-                                 special_tokens=[SPECIAL_TOKEN],
-                                 ),
+            Tokenizer.from_files(
+                Tokenizer,
+                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
+                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
+                special_tokens=[SPECIAL_TOKEN],
+            ),
             [258, 294, 111],
             "hello",
         ),
@@ -61,15 +68,17 @@ def test_decode(tokenizer: Tokenizer, tokens: list[int], expected: str):
     else:
         print(got)
 
+
 @pytest.mark.parametrize(
     "tokenizer, texts",
     [
         (
-            Tokenizer.from_files(Tokenizer, 
-                                 vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json", 
-                                 merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt", 
-                                 special_tokens=["<|endoffile|>", SPECIAL_TOKEN],
-                                 ),
+            Tokenizer.from_files(
+                Tokenizer,
+                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
+                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
+                special_tokens=["<|endoffile|>", SPECIAL_TOKEN],
+            ),
             [
                 # "hello world",
                 # "code is cheap, show me the talk",
@@ -85,3 +94,27 @@ def test_encode_decode_roundtrip(tokenizer: Tokenizer, texts: list[str]):
         tokens = tokenizer.encode(text)
         got = tokenizer.decode(tokens)
         assert got == text
+
+
+@pytest.mark.parametrize(
+    "vocab_filepath, merges_filepath, special_tokens, input_filepath, output_filepath, token_num",
+    [
+        (
+            "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-vocab.json",
+            "cs336_basics/TinyStoriesV2-GPT4-train-10_000vocab-8C-merge.txt",
+            [SPECIAL_TOKEN],
+            "data/TinyStoriesV2-GPT4-valid.txt",
+            "data/TinyStoriesV2-GPT4-valid-tokens.npy",
+            5469572,
+        )
+    ],
+)
+def test_encode_and_save_np_array(
+    vocab_filepath, merges_filepath, special_tokens, input_filepath, output_filepath, token_num
+):
+    tokenizer = Tokenizer.from_files(Tokenizer, vocab_filepath, merges_filepath, special_tokens)
+    with open(input_filepath) as f:
+        tokens = tokenizer.encode(f.read())
+        np.save(output_filepath, tokens)
+        if token_num > 0:
+            assert len(tokens) == token_num

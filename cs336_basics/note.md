@@ -59,7 +59,7 @@
     2. when input token IDs do not produce a valid Unicode string, replace the malformed bytes with the official Unicode replacement character `U+FFFD`
 
 # Answers
-## Problem (unicode1): Understanding Unicode (1 point)
+## Problem (unicode1): Understanding Unicode (1 point)✅
 1. What Unicode character does chr(0) return?
     '\x00'
 2. How does this character’s string representation (__repr__()) differ from its printed representation?
@@ -76,7 +76,7 @@ following in your Python interpreter and see if it matches your expectations:
 >>> print("this is a test" + chr(0) + "string")
 this is a teststring
 ```
-## Problem (unicode2): Unicode Encodings (3 points)
+## Problem (unicode2): Unicode Encodings (3 points)✅
 1. What are some reasons to prefer training our tokenizer on UTF-8 encoded bytes, rather than
 UTF-16 or UTF-32? It may be helpful to compare the output of these encodings for various
 input strings.
@@ -95,7 +95,7 @@ def decode_utf8_bytes_to_str_wrong(bytestring: bytes):
     1. `b'\xc0\x80'.decode('utf-8')` invalid start byte 
     2. `b'\xe4\xbd'.decode('utf-8')` unexpected end of data
     3. A two-byte unicode character requires the first byte to be `110xxxxx` and the second to be `10xxxxxx`, and each code point must use the **shortest byte sequence** that can represent it
-## Problem (train_bpe): BPE Tokenizer Training (15 points)
+## Problem (train_bpe): BPE Tokenizer Training (15 points)✅
 1. Optional optimization (large time-investment)
     - Implement the key parts of your training method using some **systems language**, for instance C++ (consider cppyy for this) or Rust (using PyO3)
     - Be aware of which operations require copying vs reading directly from Python memory, and make sure to leave build instructions, or make sure it builds using only pyproject.toml. 
@@ -108,27 +108,35 @@ def decode_utf8_bytes_to_str_wrong(bytestring: bytes):
     3. `re.finditer`: use `re.finditer` instead of `re.findAll`, store in counter can avoid storing all pre-tokens (Memory)
     4. iteration times: `update_token_pair_count_and_index` iterate current pair's index (instead of highest pair), reducint the iteration times (CPU)
 
-## Problem (train_bpe_tinystories): BPE Training on TinyStories (2 points)
+## Problem (train_bpe_tinystories): BPE Training on TinyStories (2 points)✅
 1. `TinyStoriesV2-GPT4-train-10_000vocab-8C.log`, traning takes 97s
 2. `TinyStoriesV2-GPT4-train-10_000vocab-8C-vocab.json`
 3. `TinyStoriesV2-GPT4-train-10_000vocab-8C-merge.txt`
-## Problem (train_bpe_expts_owt): BPE Training on OpenWebText (2 points)
+## Problem (train_bpe_expts_owt): BPE Training on OpenWebText (2 points)⭕
 TODO
-## Problem (tokenizer): Implementing the tokenizer (15 points)
-> implement in cs_336_basics/bpe_tokenizer.py
+## Problem (tokenizer): Implementing the tokenizer (15 points)✅
 1. Implement a `Tokenizer` class that, given a `vocabulary` and a list of `merges`, `encodes`
 text into integer IDs and `decodes` integer IDs into text. 
 2. Your tokenizer should also support user-provided special tokens (appending them to the vocabulary if they aren’t already there). We recommend the following interface
 3. Test
     implement the test adapter at [adapters.get_tokenizer]
     run `uv run pytest tests/test_tokenizer.py`
+### Implementation
+1. Implement in `cs_336_basics/bpe_tokenizer.py`
+2. Test results in `tests/output_test_tokenizer.txt`
+
 ## Problem (tokenizer_experiments): Experiments with tokenizers (4 points)
 1. Sample 10 documents from TinyStories and OpenWebText. Using your previously-trained TinyStories and OpenWebText tokenizers (10K and 32K vocabulary size, respectively), encode these sampled documents into integer IDs. What is each tokenizer’s **compression ratio** (bytes/token)
     TODO
 2. What happens if you tokenize your OpenWebText sample with the TinyStories tokenizer? Compare the compression ratio and/or qualitatively describe what happens
+    Guess: compression ratio worse than using according tokenizer?
+3. Estimate the throughput of your tokenizer (e.g., in **bytes/second**). How long would it take to tokenize the Pile dataset (825GB of text)?
     TODO
-3. Estimate the throughput of your tokenizer (e.g., in **bytes/second**). How long would it take to
-tokenize the Pile dataset (825GB of text)?
-    TODO
-4. Using your TinyStories and OpenWebText tokenizers, encode the respective training and development datasets into a sequence of integer token IDs. We’ll use this later to train our language model. We recommend serializing the token IDs as a `NumPy` array of datatype `uint16`. Why is `uint16` an appropriate choice?
+4. Using your TinyStories and OpenWebText tokenizers, encode the respective training and development datasets into a sequence of integer token IDs. We’ll use this later to train our language model. We recommend serializing the token IDs as a `NumPy` array of datatype `uint16`. Why is `uint16` an appropriate choice?⭕
     Vocabulary size is larger than 256, but much smaller than 65536
+### Implementation
+1. Encoding `TinyStoriesV2-GPT4-valid.txt` into np array takes **139.78s** on a 18C mac, implying under-optimization
+2. Optimization
+    1. Set lru_cache maxsize to None, running time decreases to **23.27s**
+    2. Parallel pre-tokenization and apply merge in main process, running time decreases to **17.08s** (`multiprocessing.Pool` do not share lru_cache)
+    3. Merge process optimization?
