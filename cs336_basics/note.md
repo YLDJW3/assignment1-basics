@@ -199,27 +199,84 @@ text into integer IDs and `decodes` integer IDs into text.
 3. Beam search: select the top `beam_size` words, run the model for `beam_size` times with those words and choose the best 
 
 # Transformer implementation
-input token embeddings -- transformer blocks -- output embedding -- softmax -- output probabilities
-## Token embedding
-1. input: a tensor of token IDs of shape `batch_size * sequence_length`
-2. output: a sequence of vectors of shape `batch_size * sequence_length * d_model`
-## Pre-norm Transformer block
-1. input: a tensor of shape `batch_size * sequence_length * d_model`
-2. output: a tensor of shape `batch_size * sequence_length * d_model`
-3. layers: pre-norm, self-attention, feed forward
-## Output normalization and embedding
-1. normalization layer
-2. learned linear transformation
-    input: a tensor of shape `batch_size * sequence_length * d_model`, output of the last transformer block
-    output: predicted next-token logits
+input token embeddings -- transformer blocks -- output embedding(norm + linear) -- softmax -- output probabilities
 ## Parameter Initialization
 1. Bad initialization can lead to issues like gradients vanishing or exploding
 2. Initialization have a siginificant impact on trainding speed and convergence
-## Linear Module
-1. Implement a Linear class that inherits from `torch.nn.Module` and performs a linear transformation. Your implementation should follow the interface of PyTorch’s built-in `nn.Linear` module, except for not having a `bias` argument or parameter
-2. Use `torch.nn.init.trunc_normal_` to initialize the weights
-
+3. Use `torch.nn.init.trunc_normal_` to initialize the weights
 ## Embedding Module
+1. Map each token ID to its associated vector
+    1. input: a tensor of token IDs of shape `batch_size * sequence_length` 2. output: a sequence of vectors of shape `batch_size * sequence_length * d_model`
+2. Implemented in `embedding.py`
+## Pre-norm Transformer block
+1. Pre-norm vs post-norm: 
+    1. "Attention is all you need" used post-norm
+    2. Researchers found pre-norm (with an additional layer normalization after the final Transformer block) **improves Transformer training stability**
+2. LayerNorm vs RMSNorm 
+    1. $LayerNorm(x) = \gamma * \frac{x - mean}{\sqrt{var + \epsilon}} + \beta$, learned parameter is $\gamma$, $\beta$
+    2. $RMSNorm(x) = \gamma * \frac{x}{\sqrt{mean(x^2)} + \epsilon}$
+    3. Implemented in `rms_normalization.py`
+3. Feed-Forward Network
+    1. $ReLU(x) = max(0, x)$
+    2. $SiLU(x) = x*\gamma(x) = \frac{x}{1 + e^{-x}}$, similar to ReLU but smooth at zero point
+    3. $GLU(x, W_1, W_2) = \gamma(W_1x) * (W_2x)$, where x represents elementwise multiplication here
+    4. $FFN(x) = SwiGLU(x, W_1, W_2, W_3) = W_2(SiLU(W_1x)*W_3x)$
+    5. Experiments shows that **SwiGLU outperforms baselines** like ReLU and SiLU (without gating) on language modeling tasks
+    6. Implemented in `swiglu_feed_forward.py`
+4. Positional embeddings
+    1. Rotary position embeddings, RoPE
+    2. For a given query token $q^i$ at position i, apply a pairwise rotation matrix $R^i$, rotating pairs of embedding elements $q_{2k-1:2k}^{(i)}$ as 2d vectors by angle $\theta_{i,k}=\frac{i}{\theta^{(2k-2)/d}}$ for $k \in {1,...,d/2}$
+    3. Implemented in `rope.py`
+5. Multihead self attention 
+    1. Scaled dot-product attention, implemented in `attention.py`
+    2. Multi-head self attention
+        1. reshaping Q, K, V from (batch, seq_len, h * d_k) to (batch, h, seq_len, d_k), batching matrix multiplication for multi-head
+        2. implemented in `attention.py`
+## Output normalization and embedding
+1. normalization layer: `rms_normalization.py`
+2. output embedding: implemented in `linear.py`
+    input: a tensor of shape `(batch_size, seq_len, d_model)`, output of the last transformer block
+    output: predicted next-token logits of shape `(batch_size, seq_len, vocab_size)`
+## Answers: Transformer LM resource accounting
+1. Consider GPT-2 XL, which has the following configuration:
+    vocab_size : 50,257
+    context_length : 1,024
+    num_layers : 48
+    d_model : 1,600
+    num_heads: 25
+    d_ff: 6,400
+    Suppose we constructed our model using this configuration. How many trainable parameters would our model have? Assuming each parameter is represented using single-precision floating point, how much memory is required to just load this model?
+    1. Number of trainable parameters 
+        Token embedddings: vocab_size * d_model
+        RMS normalization: d_model
+        Multi-head self attention: 4 * d_model ^ 2
+        Feed forward: 3 * d_model * d_ff
+        Ouput embeddings: d_model * vocab_size
+        Total: $vocab_size\times d + layers(4d^2 + 3dd_{ff} + 2d) + d + d\times{vocab\_size}$, 1,635,844,802 parameters
+    2. Required memory to load the model: 6GB for FP32
+
+2. Identify the matrix multiplies required to complete a forward pass of our GPT-2 XL-shaped model. How many FLOPs do these matrix multiplies require in total? Assume that our input sequence has `context_length` tokens.
+    - $FLOPs = layers * (4n^2d + 6nd^2 + 6nd{d_{ff}}) + 2nd(vocab\_size)$
+    - n = context_length = 1024
+    - d_model = 1600
+    - d_ff = 6400
+    - vocab_size = 50,257
+    - layers = 48
+    - FLOPs = 4,261,678,284,800
+3. Based on your analysis above, which parts of the model require the most FLOPs?
+    - ffn: 3,019,898,880,000  FLOPs
+    - attn: 1,077,097,267,200 FLOPs
+    - output embeddings: 164,682,137,600 FLOPs 
+4. Repeat your analysis with GPT-2 small (12 layers, 768 d_model, 12 heads), GPT-2 medium (24 layers, 1024 d_model, 16 heads), and GPT-2 large (36 layers, 1280 d_model, 20 heads). As the model size increases, which parts of the Transformer LM take up proportionally more or less of the total FLOPs?
+    - GPT-2 small 
+    - GPT-2 medium
+    - GPT-2 large
+5. Take GPT-2 XL and increase the context length to 16,384. How does the total FLOPs for one forward pass change? How do the relative contribution of FLOPs of the model components change
+    - output embedding costs 2,634,914,201,600 FLOPs
+    - ffn costs 48,318,382,080,000 FLOPs
+    - attn costs 94,542,967,603,200 FLOPs
+    - total costs 145,496,263,884,800 FLOPs
+    - attention, since $4n^2d$ grows quadratically
 
 # Ref
 ## Blogs
