@@ -20,6 +20,7 @@ from cs336_basics.utils import softmax, log
 from cs336_basics.attention import scaled_dot_product_attention, MultiHeadSelfAttention
 from cs336_basics.transformer import Transformer
 from cs336_basics.transformer_lm import LM
+from cs336_basics.loss_function import cross_entropy
 
 
 def run_linear(
@@ -317,22 +318,24 @@ def run_transformer_block(
     """
     model = Transformer(
         d_model=d_model,
-        num_heads=num_heads, 
+        num_heads=num_heads,
         d_ff=d_ff,
         max_seq_len=max_seq_len,
         theta=theta,
     )
-    model.load_state_dict({
-        "attn.q_weight": weights["attn.q_proj.weight"],
-        "attn.k_weight": weights["attn.k_proj.weight"],
-        "attn.v_weight": weights["attn.v_proj.weight"],
-        "attn.o_weight": weights["attn.output_proj.weight"],
-        "rms_norm_attn.weight": weights["ln1.weight"],
-        "rms_norm_ffn.weight": weights["ln2.weight"],
-        "ffn.w1": weights["ffn.w1.weight"],
-        "ffn.w2": weights["ffn.w2.weight"],
-        "ffn.w3": weights["ffn.w3.weight"],
-    })
+    model.load_state_dict(
+        {
+            "attn.q_weight": weights["attn.q_proj.weight"],
+            "attn.k_weight": weights["attn.k_proj.weight"],
+            "attn.v_weight": weights["attn.v_proj.weight"],
+            "attn.o_weight": weights["attn.output_proj.weight"],
+            "rms_norm_attn.weight": weights["ln1.weight"],
+            "rms_norm_ffn.weight": weights["ln2.weight"],
+            "ffn.w1": weights["ffn.w1.weight"],
+            "ffn.w2": weights["ffn.w2.weight"],
+            "ffn.w3": weights["ffn.w3.weight"],
+        }
+    )
     return model(in_features)
 
 
@@ -424,14 +427,14 @@ def run_transformer_lm(
     }
     for i in range(num_layers):
         state_dict[f"transformers.{i}.attn.q_weight"] = weights[f"layers.{i}.attn.q_proj.weight"]
-        state_dict[f"transformers.{i}.attn.k_weight"]= weights[f"layers.{i}.attn.k_proj.weight"]
-        state_dict[f"transformers.{i}.attn.v_weight"]= weights[f"layers.{i}.attn.v_proj.weight"]
-        state_dict[f"transformers.{i}.attn.o_weight"]= weights[f"layers.{i}.attn.output_proj.weight"]
-        state_dict[f"transformers.{i}.rms_norm_attn.weight"]= weights[f"layers.{i}.ln1.weight"]
-        state_dict[f"transformers.{i}.rms_norm_ffn.weight"]= weights[f"layers.{i}.ln2.weight"]
-        state_dict[f"transformers.{i}.ffn.w1"]= weights[f"layers.{i}.ffn.w1.weight"]
-        state_dict[f"transformers.{i}.ffn.w2"]= weights[f"layers.{i}.ffn.w2.weight"]
-        state_dict[f"transformers.{i}.ffn.w3"]= weights[f"layers.{i}.ffn.w3.weight"] 
+        state_dict[f"transformers.{i}.attn.k_weight"] = weights[f"layers.{i}.attn.k_proj.weight"]
+        state_dict[f"transformers.{i}.attn.v_weight"] = weights[f"layers.{i}.attn.v_proj.weight"]
+        state_dict[f"transformers.{i}.attn.o_weight"] = weights[f"layers.{i}.attn.output_proj.weight"]
+        state_dict[f"transformers.{i}.rms_norm_attn.weight"] = weights[f"layers.{i}.ln1.weight"]
+        state_dict[f"transformers.{i}.rms_norm_ffn.weight"] = weights[f"layers.{i}.ln2.weight"]
+        state_dict[f"transformers.{i}.ffn.w1"] = weights[f"layers.{i}.ffn.w1.weight"]
+        state_dict[f"transformers.{i}.ffn.w2"] = weights[f"layers.{i}.ffn.w2.weight"]
+        state_dict[f"transformers.{i}.ffn.w3"] = weights[f"layers.{i}.ffn.w3.weight"]
     model.load_state_dict(state_dict)
     return model(in_indices)
 
@@ -529,7 +532,7 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    return cross_entropy(inputs, targets)
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:

@@ -7,13 +7,13 @@ from cs336_basics.rms_normalization import RMSNorm
 
 class Transformer(nn.Module):
     def __init__(
-            self,
-            d_model: int,
-            num_heads: int,
-            max_seq_len: int,
-            theta: float,
-            d_ff: int,
-        ):
+        self,
+        d_model: int,
+        num_heads: int,
+        max_seq_len: int,
+        theta: float,
+        d_ff: int,
+    ):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
@@ -30,9 +30,9 @@ class Transformer(nn.Module):
         )
         self.rms_norm_attn = RMSNorm(d_model=d_model)
         self.rms_norm_ffn = RMSNorm(d_model=d_model)
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.shape[-1] == self.d_model
         token_positions = torch.arange(x.shape[-2])
         x = x + self.attn(self.rms_norm_attn(x), True, token_positions)
-        return x + self.ffn(self.rms_norm_ffn(x)) 
+        return x + self.ffn(self.rms_norm_ffn(x))

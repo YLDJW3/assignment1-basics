@@ -6,6 +6,7 @@ from cs336_basics.utils import softmax, log
 from cs336_basics.linear import Linear
 from cs336_basics.embedding import Embedding
 
+
 class LM(nn.Module):
     def __init__(
         self,
@@ -22,10 +23,10 @@ class LM(nn.Module):
         self.embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
         self.post_norm = RMSNorm(d_model)
         self.linear = Linear(d_model, vocab_size)
-        self.transformers = nn.Sequential(*[
-            Transformer(d_model, num_heads, context_length, theta, d_ff) for _ in range(num_layers)
-        ])
-    
+        self.transformers = nn.Sequential(
+            *[Transformer(d_model, num_heads, context_length, theta, d_ff) for _ in range(num_layers)]
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.embedding(x)
         x = self.transformers(x)
@@ -33,6 +34,3 @@ class LM(nn.Module):
         x = self.linear(x)
         return x
         # return softmax(x, -1)
-
-
-

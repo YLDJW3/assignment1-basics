@@ -1,12 +1,13 @@
 import pytest
 from cs336_basics.utils import flops, log, parameter_num, memory_num
 
+
 @pytest.mark.parametrize(
     "name,layers,n,d_model,d_ff,vocab_size,expected",
     [
         (
             "GPT-2 XL",
-            48, 
+            48,
             1024,
             1600,
             6400,
@@ -15,14 +16,14 @@ from cs336_basics.utils import flops, log, parameter_num, memory_num
         ),
         (
             "GPT-2 XL context-length",
-            48, 
+            48,
             16_384,
             1600,
             6400,
             50_257,
             0,
-        )
-    ]
+        ),
+    ],
 )
 def test_flops(name: str, layers: int, n: int, d_model: int, d_ff: int, vocab_size: int, expected: int):
     log.info(f"{name} case")
@@ -36,14 +37,14 @@ def test_flops(name: str, layers: int, n: int, d_model: int, d_ff: int, vocab_si
     [
         (
             "GPT-2 XL",
-            48, 
+            48,
             1024,
             1600,
             6400,
             50_257,
             0,
         ),
-    ]
+    ],
 )
 def test_parameter_num(name: str, layers: int, n: int, d_model: int, d_ff: int, vocab_size: int, expected: int):
     log.info(f"{name} case")
@@ -51,4 +52,3 @@ def test_parameter_num(name: str, layers: int, n: int, d_model: int, d_ff: int, 
     _ = memory_num(got, 4)
     if expected > 0:
         assert expected == got
-

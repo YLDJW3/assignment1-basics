@@ -277,6 +277,13 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
     - attn costs 94,542,967,603,200 FLOPs
     - total costs 145,496,263,884,800 FLOPs
     - attention, since $4n^2d$ grows quadratically
+# Transformer Training
+- Loss function: cross entropy
+- Optimizer: AdamW
+- Traning loop: infrastructure to load data, save checkpoints and manage traning
+## Loss function
+
+
 
 # Ref
 ## Blogs
