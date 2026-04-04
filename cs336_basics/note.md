@@ -282,6 +282,29 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
 - Optimizer: AdamW
 - Traning loop: infrastructure to load data, save checkpoints and manage traning
 ## Loss function
+1. Cross-entroy loss
+2. Implemented in `loss_function.py`
+## Optimizer
+1. SGD optimizer
+    $\theta_{t+1} \leftarrow \theta_t - \alpha_t \nabla(\theta_t;B_t)$
+    $B_t$ is a random batch of data sampled from dataset D
+    $\alpha_t$ is learning rate
+2. AdamW optimizer
+    gradient: $g \leftarrow \nabla_{\theta}l(\theta;B_t)$
+    first moment estimate: $m \leftarrow \beta_1m + (1 - \beta_1)g$
+    second mement estimate: $v \leftarrow \beta_2v + (1 - \beta_2)g^2$
+    $\alpha_t \leftarrow \alpha \frac{\sqrt{1-(\beta_2)^t}}{1-(\beta_1)^t}$
+    $\theta \leftarrow \theta - \alpha_t\frac{m}{\sqrt{v+\epsilon}}$
+    $\theta \leftarrow \theta - \alpha\lambda\theta$
+3. Implemented in `adamw_optimizer.py`
+4. Problem: Resource accounting for training with AdamW
+    1. How much peak memory does running AdamW require? Decompose your answer based on the memory usage of the parameters, activations, gradients, and optimizer state. Express your answer in terms of the batch_size and the model hyperparameters (vocab_size, context_length, num_layers, d_model, num_heads). Assume d_ff = 4 × d_model.
+    2. Instantiate your answer for a GPT-2 XL-shaped model to get an expression that only depends on the batch_size. What is the maximum batch size you can use and still fit within 80GB memory
+    3. How many FLOPs does running one step of AdamW take?
+    4. Model FLOPs utilization (MFU) is defined as the ratio of observed throughput (tokens per second) relative to the hardware’s theoretical peak FLOP throughput. An NVIDIA A100 GPU has a theoretical peak of 19.5 teraFLOP/s for float32 operations. Assuming you are able to get 50% MFU, how long would it take to train a GPT-2 XL for 400K steps and a batch size of 1024 on a single A100
+# Training loop
+
+
 
 
 

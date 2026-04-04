@@ -1,5 +1,6 @@
 import torch
 import logging
+import numpy as np
 
 logging.basicConfig(
     level=logging.INFO,
@@ -11,6 +12,21 @@ log = logging.getLogger(__name__)
 def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
     e = torch.exp(x - x.max(dim=dim, keepdim=True).values)
     return e / e.sum(dim=dim, keepdim=True)
+
+
+def data_loading(
+    x: np.array, 
+    batch_size: int, 
+    context_length: int, 
+    device: torch.device | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    tokens = torch.from_numpy(x)
+    assert batch_size * context_length + 1 <= len(tokens)
+    start = range(0, batch_size * context_length, context_length)
+    input = torch.stack([tokens[s: s + context_length] for s in start])
+    target = torch.stack([tokens[s + 1: s + 1 + context_length] for s in start])
+    return input, target
+
 
 
 def flops(layers: int, n: int, d_model: int, d_ff: int, vocab_size: int) -> int:
