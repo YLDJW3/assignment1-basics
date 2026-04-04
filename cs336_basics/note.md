@@ -298,10 +298,21 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
     $\theta \leftarrow \theta - \alpha\lambda\theta$
 3. Implemented in `adamw_optimizer.py`
 4. Problem: Resource accounting for training with AdamW
-    1. How much peak memory does running AdamW require? Decompose your answer based on the memory usage of the parameters, activations, gradients, and optimizer state. Express your answer in terms of the batch_size and the model hyperparameters (vocab_size, context_length, num_layers, d_model, num_heads). Assume d_ff = 4 × d_model.
+    1. How much peak memory does running AdamW require? Decompose your answer based on the memory usage of the parameters, activations, gradients, and optimizer state. Express your answer in terms of the `batch_size` and the model hyperparameters `(vocab_size, context_length, num_layers, d_model, num_heads)`. Assume d_ff = 4 × d_model.
+        - Parameters 
+            Token embedddings: $V\times d$
+            RMS normalization: $d$
+            Multi-head self attention: $4d^2$
+            Feed forward: $12d^2$
+            Ouput embeddings: $V \times d$
+            Parameter count: $2Vd + 16Ld^2$
+        - Activations
+        - Gradients: same as parameter, $2Vd + 16Ld^2$
+        - Optimizer state: first and second memoent for each parameter, $4Vd + 32Ld^2$ 
     2. Instantiate your answer for a GPT-2 XL-shaped model to get an expression that only depends on the batch_size. What is the maximum batch size you can use and still fit within 80GB memory
     3. How many FLOPs does running one step of AdamW take?
     4. Model FLOPs utilization (MFU) is defined as the ratio of observed throughput (tokens per second) relative to the hardware’s theoretical peak FLOP throughput. An NVIDIA A100 GPU has a theoretical peak of 19.5 teraFLOP/s for float32 operations. Assuming you are able to get 50% MFU, how long would it take to train a GPT-2 XL for 400K steps and a batch size of 1024 on a single A100
+
 # Training loop
 1. Data loader
     Implemented in `utils.py::data_loading`
@@ -313,8 +324,6 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
     Optimizer states
     Save: `torch.save(obj, dest)` dumps an object to a file
     Load: `torch.load(src)`
-
-
 
 
 
@@ -331,3 +340,9 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
 5. nanoGPT
 6. nanoChat https://github.com/karpathy/nanochat
 7. https://karpathy.ai/zero-to-hero.html
+
+## Books
+1. DL
+    Dive into Deep Learning https://d2l.ai/
+    Deep Learning (Goodfellow)
+2. RL: Reinforcement Learning: An Introduction
