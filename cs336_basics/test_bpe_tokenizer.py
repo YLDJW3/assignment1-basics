@@ -1,38 +1,41 @@
 import pytest
 import numpy as np
+from pathlib import Path
 from cs336_basics.bpe_tokenizer import *
 from cs336_basics.test_bpe_train import SPECIAL_TOKEN
 
+VOCAB_PATH_200MB = "cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json"
+MERGE_PATH_200MB = "cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt"
 
-@pytest.mark.parametrize(
-    "vocab_path, merge_path, special_tokens",
-    [
-        (
-            "cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
-            "cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
-            [SPECIAL_TOKEN],
-        ),
-    ],
-)
-def test_from_files(vocab_path, merge_path, special_tokens):
-    tokenizer = Tokenizer.from_files(
-        Tokenizer, vocab_filepath=vocab_path, merges_filepath=merge_path, special_tokens=special_tokens
+@pytest.fixture
+def tokenizer_200MB():
+    return Tokenizer.from_files(
+        Tokenizer,
+        vocab_filepath=VOCAB_PATH_200MB,
+        merges_filepath=MERGE_PATH_200MB,
+        special_tokens=[SPECIAL_TOKEN],
     )
+
+@pytest.mark.skipif(
+    not Path(VOCAB_PATH_200MB).exists(), 
+    reason="test data file missed"
+)
+def test_from_files():
+    tokenizer = tokenizer_200MB
     assert len(tokenizer.id_2_token) == 300
     assert len(tokenizer.token_2_id) == 300
     assert len(tokenizer.merges) == 43
 
 
+@pytest.mark.skipif(
+    not Path(VOCAB_PATH_200MB).exists(), 
+    reason="test data file missed"
+)
 @pytest.mark.parametrize(
     "tokenizer, text, expected",
     [
         (
-            Tokenizer.from_files(
-                Tokenizer,
-                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
-                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
-                special_tokens=[SPECIAL_TOKEN],
-            ),
+            tokenizer_200MB,
             "hello",
             [258, 294, 111],
         ),
@@ -46,16 +49,15 @@ def test_encode(tokenizer, text, expected):
         print(got)
 
 
+@pytest.mark.skipif(
+    not Path(VOCAB_PATH_200MB).exists(), 
+    reason="test data file missed"
+)
 @pytest.mark.parametrize(
     "tokenizer, tokens, expected",
     [
         (
-            Tokenizer.from_files(
-                Tokenizer,
-                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
-                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
-                special_tokens=[SPECIAL_TOKEN],
-            ),
+            tokenizer_200MB,
             [258, 294, 111],
             "hello",
         ),
@@ -69,16 +71,15 @@ def test_decode(tokenizer: Tokenizer, tokens: list[int], expected: str):
         print(got)
 
 
+@pytest.mark.skipif(
+    not Path(VOCAB_PATH_200MB).exists(), 
+    reason="test data file missed"
+)
 @pytest.mark.parametrize(
     "tokenizer, texts",
     [
         (
-            Tokenizer.from_files(
-                Tokenizer,
-                vocab_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json",
-                merges_filepath="cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt",
-                special_tokens=["<|endoffile|>", SPECIAL_TOKEN],
-            ),
+            tokenizer_200MB,
             [
                 # "hello world",
                 # "code is cheap, show me the talk",
