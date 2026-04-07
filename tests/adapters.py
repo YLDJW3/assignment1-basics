@@ -16,7 +16,7 @@ from cs336_basics.embedding import Embedding
 from cs336_basics.rms_normalization import RMSNorm
 from cs336_basics.swiglu_feed_forward import SwigluFFN
 from cs336_basics.rope import RotaryPositionalEmbedding
-from cs336_basics.utils import softmax, log
+from cs336_basics.utils import softmax, log, data_loading, save_checkpoint, load_checkpoint
 from cs336_basics.attention import scaled_dot_product_attention, MultiHeadSelfAttention
 from cs336_basics.transformer import Transformer
 from cs336_basics.transformer_lm import LM
@@ -102,9 +102,9 @@ def run_swiglu(
     swiglu = SwigluFFN(d_model, d_ff)
     swiglu.load_state_dict(
         {
-            "w1": w1_weight,
-            "w2": w2_weight,
-            "w3": w3_weight,
+            "w1.weight": w1_weight,
+            "w2.weight": w2_weight,
+            "w3.weight": w3_weight,
         }
     )
     return swiglu(in_features)
@@ -165,10 +165,10 @@ def run_multihead_self_attention(
     self_attention = MultiHeadSelfAttention(d_model, num_heads)
     self_attention.load_state_dict(
         {
-            "q_weight": q_proj_weight,
-            "k_weight": k_proj_weight,
-            "v_weight": v_proj_weight,
-            "o_weight": o_proj_weight,
+            "w_q.weight": q_proj_weight,
+            "w_k.weight": k_proj_weight,
+            "w_v.weight": v_proj_weight,
+            "w_o.weight": o_proj_weight,
         }
     )
     return self_attention(in_features)
@@ -215,10 +215,10 @@ def run_multihead_self_attention_with_rope(
     self_attention = MultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
     self_attention.load_state_dict(
         {
-            "q_weight": q_proj_weight,
-            "k_weight": k_proj_weight,
-            "v_weight": v_proj_weight,
-            "o_weight": o_proj_weight,
+            "w_q.weight": q_proj_weight,
+            "w_k.weight": k_proj_weight,
+            "w_v.weight": v_proj_weight,
+            "w_o.weight": o_proj_weight,
         }
     )
     return self_attention(in_features, rope=True, token_positions=token_positions)
@@ -326,15 +326,15 @@ def run_transformer_block(
     )
     model.load_state_dict(
         {
-            "attn.q_weight": weights["attn.q_proj.weight"],
-            "attn.k_weight": weights["attn.k_proj.weight"],
-            "attn.v_weight": weights["attn.v_proj.weight"],
-            "attn.o_weight": weights["attn.output_proj.weight"],
+            "attn.w_q.weight": weights["attn.q_proj.weight"],
+            "attn.w_k.weight": weights["attn.k_proj.weight"],
+            "attn.w_v.weight": weights["attn.v_proj.weight"],
+            "attn.w_o.weight": weights["attn.output_proj.weight"],
             "rms_norm_attn.weight": weights["ln1.weight"],
             "rms_norm_ffn.weight": weights["ln2.weight"],
-            "ffn.w1": weights["ffn.w1.weight"],
-            "ffn.w2": weights["ffn.w2.weight"],
-            "ffn.w3": weights["ffn.w3.weight"],
+            "ffn.w1.weight": weights["ffn.w1.weight"],
+            "ffn.w2.weight": weights["ffn.w2.weight"],
+            "ffn.w3.weight": weights["ffn.w3.weight"],
         }
     )
     return model(in_features)
@@ -427,15 +427,15 @@ def run_transformer_lm(
         "linear.weight": weights["lm_head.weight"],
     }
     for i in range(num_layers):
-        state_dict[f"transformers.{i}.attn.q_weight"] = weights[f"layers.{i}.attn.q_proj.weight"]
-        state_dict[f"transformers.{i}.attn.k_weight"] = weights[f"layers.{i}.attn.k_proj.weight"]
-        state_dict[f"transformers.{i}.attn.v_weight"] = weights[f"layers.{i}.attn.v_proj.weight"]
-        state_dict[f"transformers.{i}.attn.o_weight"] = weights[f"layers.{i}.attn.output_proj.weight"]
+        state_dict[f"transformers.{i}.attn.w_q.weight"] = weights[f"layers.{i}.attn.q_proj.weight"]
+        state_dict[f"transformers.{i}.attn.w_k.weight"] = weights[f"layers.{i}.attn.k_proj.weight"]
+        state_dict[f"transformers.{i}.attn.w_v.weight"] = weights[f"layers.{i}.attn.v_proj.weight"]
+        state_dict[f"transformers.{i}.attn.w_o.weight"] = weights[f"layers.{i}.attn.output_proj.weight"]
         state_dict[f"transformers.{i}.rms_norm_attn.weight"] = weights[f"layers.{i}.ln1.weight"]
         state_dict[f"transformers.{i}.rms_norm_ffn.weight"] = weights[f"layers.{i}.ln2.weight"]
-        state_dict[f"transformers.{i}.ffn.w1"] = weights[f"layers.{i}.ffn.w1.weight"]
-        state_dict[f"transformers.{i}.ffn.w2"] = weights[f"layers.{i}.ffn.w2.weight"]
-        state_dict[f"transformers.{i}.ffn.w3"] = weights[f"layers.{i}.ffn.w3.weight"]
+        state_dict[f"transformers.{i}.ffn.w1.weight"] = weights[f"layers.{i}.ffn.w1.weight"]
+        state_dict[f"transformers.{i}.ffn.w2.weight"] = weights[f"layers.{i}.ffn.w2.weight"]
+        state_dict[f"transformers.{i}.ffn.w3.weight"] = weights[f"layers.{i}.ffn.w3.weight"]
     model.load_state_dict(state_dict)
     return model(in_indices)
 
@@ -499,7 +499,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    return data_loading(dataset, batch_size, context_length, device)
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
@@ -599,7 +599,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model=model, optimizer=optimizer, iteration=iteration, out=out)
 
 
 def run_load_checkpoint(
@@ -620,7 +620,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src, model, optimizer)
 
 
 def get_tokenizer(

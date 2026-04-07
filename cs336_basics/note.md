@@ -303,6 +303,16 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
     3. How many FLOPs does running one step of AdamW take?
     4. Model FLOPs utilization (MFU) is defined as the ratio of observed throughput (tokens per second) relative to the hardware’s theoretical peak FLOP throughput. An NVIDIA A100 GPU has a theoretical peak of 19.5 teraFLOP/s for float32 operations. Assuming you are able to get 50% MFU, how long would it take to train a GPT-2 XL for 400K steps and a batch size of 1024 on a single A100
 # Training loop
+1. Data loader
+    Implemented in `utils.py::data_loading`
+    Use `mmap` for large dataset
+    Specify `dtype` matched the input data
+2. Checkpoint
+    Iteration number
+    Model weights
+    Optimizer states
+    Save: `torch.save(obj, dest)` dumps an object to a file
+    Load: `torch.load(src)`
 
 
 

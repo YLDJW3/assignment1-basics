@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from einops import einsum
+from cs336_basics.linear import Linear
 
 
 class SwigluFFN(nn.Module):
@@ -19,16 +20,16 @@ class SwigluFFN(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
-        self.w1 = nn.Parameter(torch.empty(d_ff, d_model, device=device, dtype=dtype))
-        self.w2 = nn.Parameter(torch.empty(d_model, d_ff, device=device, dtype=dtype))
-        self.w3 = nn.Parameter(torch.empty(d_ff, d_model, device=device, dtype=dtype))
+        self.w1 = Linear(d_model, d_ff, device, dtype)
+        self.w2 = Linear(d_ff, d_model, device, dtype)
+        self.w3 = Linear(d_model, d_ff, device, dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.shape[-1] == self.d_model
-        silu_w1x = self._silu(einsum(x, self.w1, "... d_model, d_ff d_model -> ... d_ff"))
-        w3x = einsum(x, self.w3, "... d_model, d_ff d_model -> ... d_ff")
-        w1w3 = einsum(silu_w1x, w3x, "... d_ff, ... d_ff -> ... d_ff")
-        return einsum(w1w3, self.w2, "... d_ff, d_model d_ff -> ... d_model")
+        silu_w1x = self._silu(self.w1(x))
+        w3x = self.w3(x)
+        w1w3 = silu_w1x * w3x
+        return self.w2(w1w3)
 
     def _silu(self, x: torch.Tensor) -> torch.Tensor:
         return x / (1 + torch.exp(-x))

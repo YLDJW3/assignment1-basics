@@ -17,14 +17,19 @@ class LM(nn.Module):
         vocab_size: int,
         context_length: int,
         num_layers: int,
+        device=None,
+        dtype=None,
     ):
         super().__init__()
         self.d_model = d_model
-        self.embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
-        self.post_norm = RMSNorm(d_model)
-        self.linear = Linear(d_model, vocab_size)
+        self.embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=device, dtype=dtype)
+        self.post_norm = RMSNorm(d_model, device=device, dtype=dtype)
+        self.linear = Linear(d_model, vocab_size, device=device, dtype=dtype)
         self.transformers = nn.Sequential(
-            *[Transformer(d_model, num_heads, context_length, theta, d_ff) for _ in range(num_layers)]
+            *[
+                Transformer(d_model, num_heads, context_length, theta, d_ff, device=device, dtype=dtype)
+                for _ in range(num_layers)
+            ]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -33,4 +38,3 @@ class LM(nn.Module):
         x = self.post_norm(x)
         x = self.linear(x)
         return x
-        # return softmax(x, -1)

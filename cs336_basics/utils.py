@@ -1,4 +1,7 @@
+import os
 import torch
+import torch.nn as nn
+import typing
 import logging
 import numpy as np
 
@@ -15,18 +18,44 @@ def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
 
 
 def data_loading(
-    x: np.array, 
-    batch_size: int, 
-    context_length: int, 
+    x: np.array,
+    batch_size: int,
+    context_length: int,
     device: torch.device | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    tokens = torch.from_numpy(x)
-    assert batch_size * context_length + 1 <= len(tokens)
-    start = range(0, batch_size * context_length, context_length)
-    input = torch.stack([tokens[s: s + context_length] for s in start])
-    target = torch.stack([tokens[s + 1: s + 1 + context_length] for s in start])
+    start = np.random.randint(low=0, high=len(x) - context_length, size=(batch_size,))
+    input = np.stack([x[s : s + context_length] for s in start])
+    target = np.stack([x[s + 1 : s + 1 + context_length] for s in start])
+    input = torch.from_numpy(input.astype(np.int64)).to(device)
+    target = torch.from_numpy(target.astype(np.int64)).to(device)
     return input, target
 
+
+def save_checkpoint(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    iteration: int,
+    out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+):
+    """
+    Dump all states of model, optimizer and iteration into file-like object
+    """
+    state = {
+        "iteration": iteration,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(state, out)
+
+
+def load_checkpoint(
+    src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes], model: nn.Module, optimizer: torch.optim.Optimizer
+):
+    state = torch.load(src)
+    assert "iteration" in state and "model" in state and "optimizer" in state
+    model.load_state_dict(state["model"])
+    optimizer.load_state_dict(state["optimizer"])
+    return state["iteration"]
 
 
 def flops(layers: int, n: int, d_model: int, d_ff: int, vocab_size: int) -> int:

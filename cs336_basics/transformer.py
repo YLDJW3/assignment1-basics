@@ -13,6 +13,8 @@ class Transformer(nn.Module):
         max_seq_len: int,
         theta: float,
         d_ff: int,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ):
         super().__init__()
         self.d_model = d_model
@@ -23,13 +25,17 @@ class Transformer(nn.Module):
             num_heads=num_heads,
             max_seq_len=max_seq_len,
             theta=theta,
+            device=device,
+            dtype=dtype,
         )
         self.ffn = SwigluFFN(
             d_model=d_model,
             d_ff=d_ff,
+            device=device,
+            dtype=dtype,
         )
-        self.rms_norm_attn = RMSNorm(d_model=d_model)
-        self.rms_norm_ffn = RMSNorm(d_model=d_model)
+        self.rms_norm_attn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
+        self.rms_norm_ffn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.shape[-1] == self.d_model

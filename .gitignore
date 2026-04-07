@@ -163,6 +163,7 @@ cython_debug/
 *.zip
 
 data/
+checkpoint/
 tests/*.txt
 cs336_basics/*.txt
 cs336_basics/*.json
