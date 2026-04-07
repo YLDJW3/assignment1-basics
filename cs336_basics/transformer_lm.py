@@ -22,6 +22,7 @@ class LM(nn.Module):
     ):
         super().__init__()
         self.d_model = d_model
+        self.context_length = context_length
         self.embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=device, dtype=dtype)
         self.post_norm = RMSNorm(d_model, device=device, dtype=dtype)
         self.linear = Linear(d_model, vocab_size, device=device, dtype=dtype)

@@ -91,7 +91,7 @@ class Tokenizer:
                     for token in self.fast_merge(word.group()):
                         yield token
 
-    def decode(self, ids: list[int]) -> str:
+    def decode(self, ids: Iterable[int]) -> str:
         """
         Decode a sequence of token IDs into text.
         """

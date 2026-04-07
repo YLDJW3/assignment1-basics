@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from pathlib import Path
 from cs336_basics.bpe_tokenizer import *
-from cs336_basics.test_bpe_train import SPECIAL_TOKEN
+from cs336_basics.utils import SPECIAL_TOKEN
 
 VOCAB_PATH_200MB = "cs336_basics/TinyStoriesV2-GPT4-train-200M-vocab.json"
 MERGE_PATH_200MB = "cs336_basics/TinyStoriesV2-GPT4-train-200M-merge.txt"

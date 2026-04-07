@@ -7,12 +7,14 @@ from cs336_basics.utils import *
 from cs336_basics.transformer_lm import LM
 from cs336_basics.adamw_optimizer import AdamW
 from cs336_basics.loss_function import cross_entropy
+from cs336_basics.bpe_tokenizer import Tokenizer
+from cs336_basics.decode import decoding
 
 
 def parse_args():
     p = argparse.ArgumentParser()
     # Mode
-    p.add_argument("--mode", type=str, default="train", choices=["train", "valid"])
+    p.add_argument("--mode", type=str, default="train", choices=["train", "valid", "decode"])
     # Data
     p.add_argument("--train_data", type=str, required=None)
     p.add_argument("--valid_data", type=str, required=None)
@@ -44,6 +46,12 @@ def parse_args():
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--dtype", type=str, default="float32", choices=["float32", "float16", "bfloat16"])
     p.add_argument("--seed", type=int, default=42)
+    # Decoding
+    p.add_argument("--temperature", type=float, default=1.0)
+    p.add_argument("--top_p", type=float, default=1.0)
+    p.add_argument("--prompt", type=str)
+    p.add_argument("--max_tokens", type=int, default=100_000)
+    
     return p.parse_args()
 
 
@@ -153,3 +161,19 @@ if __name__ == "__main__":
         model, _, step = load_model(args, device, dtype)
         valid_tokens = load_tokens(args.valid_data)
         _ = valid(model, valid_tokens, step, args, device)
+    # decode
+    elif args.mode == 'decode':
+        assert args.vocab_filepath is not None and \
+            args.merge_filepath is not None and \
+            args.prompt is not None
+        device = torch.device(args.device)
+        dtype = DTYPE_MAP[args.dtype]
+        model, _, step = load_model(args, device, dtype)
+        tokenizer = Tokenizer.from_files(Tokenizer,
+            vocab_filepath=args.vocab_filepath,
+            merges_filepath=args.merge_filepath,
+            special_tokens=[SPECIAL_TOKEN],
+        )
+        y = decoding(tokenizer, model, args.prompt, args.max_tokens, 0.9, 1)
+        log.info(f"Decode result {y}")
+

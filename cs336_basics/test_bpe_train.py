@@ -2,10 +2,8 @@ import pytest
 import json
 from collections import Counter
 from cs336_basics.bpe_train import *
+from cs336_basics.utils import SPECIAL_TOKEN
 from tests.common import gpt2_bytes_to_unicode
-
-
-SPECIAL_TOKEN = "<|endoftext|>"
 
 
 @pytest.mark.parametrize(
