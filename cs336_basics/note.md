@@ -324,6 +324,43 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
     Optimizer states
     Save: `torch.save(obj, dest)` dumps an object to a file
     Load: `torch.load(src)`
+# Experiment
+1. Train on TinyStoriesV2-GPT4 dataset with 5000 steps
+    log: `Train-tiny.log`
+    final model: `final_model_22M.pt`
+    loss: 1.8
+    Hyperparameters: 
+    ```
+    --vocab_size 10_000 \
+    --d_model 512 \
+    --num_heads 16 \
+    --num_layers 4 \
+    --d_ff 1344 \
+    --theta 10_000 \
+    --context_length 256 \
+    --batch_size 32 \
+    --max_steps 5_000 \
+    --log_interval 100 \
+    --valid_interval 10 \
+    --cp_interval 1000 \
+    ```
+2. Training record https://wandb.ai/yangzf23-independent-developer/cs336-assignment1/runs/4el28xec?nw=nwuseryangzf23
+3. Hyperparameters 
+    1. Learning rate variation: include at least one divergent run
+        `lr = 3e-4`
+        `lr = 3e-3`: 1.8+loss
+        `lr_max = 3e-3 with scheduler`: 1.6+loss
+        `lr_max = 
+
+    2. Batch size variation
+3. Architecture modification
+    Remove RMSNorm
+    Replace with post-norm
+    NoPE vs RoPE
+    SwiGLU vs SiLU
+4. Training on OpenWebText dataset
+5. Modify architecture/hyperparameters for better performance
+
 
 
 
@@ -335,11 +372,13 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
 ## Paper
 1. Attention mechanism https://arxiv.org/abs/1409.0473
 2. Attention is all you need https://arxiv.org/abs/1706.03762
+3. see `paper.md`
 ## Project
 4. minGPT https://github.com/karpathy/minGPT
 5. nanoGPT
 6. nanoChat https://github.com/karpathy/nanochat
 7. https://karpathy.ai/zero-to-hero.html
+8. Micrograd by Karpathy
 
 ## Books
 1. DL

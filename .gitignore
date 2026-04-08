@@ -164,6 +164,8 @@ cython_debug/
 
 data/
 checkpoint/
+model/
+wandb/
 tests/*.txt
 cs336_basics/*.txt
 cs336_basics/*.json

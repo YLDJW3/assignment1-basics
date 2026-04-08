@@ -12,10 +12,18 @@ class AdamW(torch.optim.Optimizer):
         weight_decay,
         betas,
         eps,
+        lr_max: float = 0,
+        lr_min: float = 0,
+        T_w: int = 0,
+        T_c: int = 0,
     ):
         assert len(betas) == 2
         defaults = {
             "lr": lr,
+            "lr_max": lr_max,
+            "lr_min": lr_min,
+            "T_w": T_w,
+            "T_c": T_c,
             "decay": weight_decay,
             "betas": betas,
             "eps": eps,
@@ -25,15 +33,22 @@ class AdamW(torch.optim.Optimizer):
     def step(self, closrue: Optional[Callable] = None):
         loss = None if closrue is None else closrue()
         for group in self.param_groups:
-            lr = group["lr"]
             decay = group["decay"]
             betas = group["betas"]
             eps = group["eps"]
+            lr = group["lr"]
+            lr_max = group["lr_max"]
+            lr_min = group["lr_min"]
+            T_w = group["T_w"]
+            T_c = group["T_c"]
             for p in group["params"]:
                 if p.grad is None:
                     continue
                 state = self.state[p]
                 t = state.get("t", 1)
+                if lr_max != 0:
+                    # enable lr scheduler
+                    lr = learning_rate_schedule(t, lr_max, lr_min, T_w, T_c)
                 m = state.get("m", torch.zeros_like(p))
                 v = state.get("v", torch.zeros_like(p))
                 grad = p.grad.data
@@ -56,21 +71,3 @@ def learning_rate_schedule(t: int, lr_max: float, lr_min: float, T_w: int, T_c: 
         return lr_min + 1 / 2 * (lr_max - lr_min) * (1 + math.cos((t - T_w) / (T_c - T_w) * math.pi))
     else:
         return lr_min
-
-
-def gradient_clipping(parameters: Iterable[torch.nn.Parameter], maximum_l2_norm: float):
-    eps = 1e-6
-    l2_norm = 0
-    for p in parameters:
-        if p.grad is None:
-            continue
-        grad = p.grad.data
-        l2_norm += grad.norm() ** 2
-    l2_norm **= 0.5
-    if l2_norm > maximum_l2_norm:
-        # gradient clipping, scale grad down by factor max_l2_norm / (l2_norm + eps)
-        factor = maximum_l2_norm / (l2_norm + eps)
-        for p in parameters:
-            if p.grad is None:
-                continue
-            p.grad.data *= factor

@@ -3,9 +3,10 @@ from cs336_basics.transformer_lm import LM
 from cs336_basics.utils import softmax, SPECIAL_TOKEN, log
 import torch
 
+
 def decoding(
     tokenizer: Tokenizer,
-    model: LM, 
+    model: LM,
     prompt: str,
     max_tokens: int,
     device: torch.device = None,
@@ -15,7 +16,7 @@ def decoding(
     x = torch.tensor(tokenizer.encode(prompt), dtype=torch.int64)
     end_token_id = tokenizer.token_2_id[SPECIAL_TOKEN.encode()]
     for i in range(max_tokens):
-        logits = model(x[-model.context_length: ])
+        logits = model(x[-model.context_length :])
         if temperature != 1:
             logits = logits / temperature
         prob = softmax(logits[-1, :], -1)

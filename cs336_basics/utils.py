@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 
 SPECIAL_TOKEN = "<|endoftext|>"
 
+
 def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
     e = torch.exp(x - x.max(dim=dim, keepdim=True).values)
     return e / e.sum(dim=dim, keepdim=True)
