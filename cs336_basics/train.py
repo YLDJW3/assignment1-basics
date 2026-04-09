@@ -36,6 +36,7 @@ def parse_args():
     p.add_argument("--dropout", type=float, default=0.1)
     # Training
     p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--accumulate_batch_size", type=int, default=1)
     p.add_argument("--weight_decay", type=float, default=0.1)
     p.add_argument("--betas", type=tuple, default=(0.9, 0.95))
     p.add_argument("--eps", type=float, default=1e-8)
@@ -148,7 +149,7 @@ def train(args):
         valid_tokens = load_tokens(args.valid_data)
     # model
     model, opt, start = load_model(args, device, dtype)
-    model = torch.compile(model, backend='aot_eager')   # speed up training by JIT-compiling
+    # model = torch.compile(model, backend="aot_eager")  # speed up training by JIT-compiling
     # training loop
     best_val_loss = float("inf")
     for t in range(start, args.max_steps + 1):
@@ -157,10 +158,13 @@ def train(args):
         logits = model(x)
         loss = cross_entropy(logits, y)
         # backward
-        opt.zero_grad()
+        loss = loss / args.accumulate_batch_size
         loss.backward()
-        gradient_clipping(model.parameters(), args.max_l2_norm)
-        opt.step()
+        # only step the optimizer every `accumulate_batch_size`
+        if t % args.accumulate_batch_size == 0:
+            gradient_clipping(model.parameters(), args.max_l2_norm)
+            opt.step()
+            opt.zero_grad()
         # logging
         dt = time.time() - t0
         token_ps = t * args.batch_size * args.context_length / dt

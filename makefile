@@ -1,9 +1,12 @@
-.PHONY: train eval test tokenize
+.PHONY: train-tiny valid-tiny decode-tiny
+
+MODEL ?= "model/final_model_d512_l4_lr_scheduler_batch32.pt"
+PROMPT ?= Once upon a time,
 
 train-tiny:
 	caffeinate -i nohup uv run python cs336_basics/train.py \
 		--mode train \
-		--name d512_l4_lr_scheduler_1e-2_batch32 \
+		--name d512_l4_lr_3e-3_b16 \
 		--train_data data/TinyStoriesV2-GPT4-train-tokens.npy \
 		--vocab_filepath data/TinyStoriesV2-GPT4-train-10_000V-vocab.json \
 		--merge_filepath data/TinyStoriesV2-GPT4-train-10_000V-merge.txt \
@@ -15,9 +18,10 @@ train-tiny:
 		--d_ff 1344 \
 		--theta 10_000 \
 		--context_length 256 \
-		--batch_size 32 \
+		--batch_size 16 \
+		--accumulate_batch_size 1 \
 		--max_steps 5000 \
-		--lr_max 1e-2 \
+		--lr_max 3e-3 \
 		--lr_min 3e-4 \
 		--T_w 500 \
 		--T_c 4000 \
@@ -25,13 +29,13 @@ train-tiny:
 		--valid_interval 10 \
 		--cp_interval 1000 \
 		--device mps \
-		--dtype float32 > train_tiny_lr_scheduler_1e-2.log 2>&1 &
+		--dtype float32 > train_tiny_lr3e-3_b16.log 2>&1 &
 
 valid-tiny:
 	uv run python cs336_basics/train.py \
 		--mode valid \
 		--valid_data data/TinyStoriesV2-GPT4-valid-tokens.npy \
-		--snapshot_filepath model/final_model_d512_l4_lr_scheduler_batch32.pt \
+		--snapshot_filepath $(MODEL) \
 		--vocab_size 10_000 \
 		--d_model 512 \
 		--num_heads 16 \
@@ -54,10 +58,10 @@ decode-tiny:
 		--theta 10_000 \
 		--context_length 256 \
 		--batch_size 32 \
-		--snapshot_filepath model/final_model_d512_l4_lr_scheduler_batch32.pt \
+		--snapshot_filepath $(MODEL) \
 		--vocab_filepath data/TinyStoriesV2-GPT4-train-10_000V-vocab.json \
 		--merge_filepath data/TinyStoriesV2-GPT4-train-10_000V-merge.txt \
-		--prompt "Tom and Lily" \
+		--prompt "$(PROMPT)" \
 		--max_tokens 1000 \
 		--temperature 0.1 \
 		--top_p 0.9 \
