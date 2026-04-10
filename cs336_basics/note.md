@@ -362,7 +362,14 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
         `top_p`: 1 gibberish, 0.1 deterministic, 0.8 is fine
 3. Architecture modification
     Remove RMSNorm
+        Run with 3e-3, diverge at step 21
+        Run with 3e-5, diverge at step 169
+        Run with 3e-7, loss fluctuates around 9.2 and not falls in 1k steps
+        Run with 3e-6, still diverge at step 520
     Replace with post-norm
+        Run with d512, l4, lr3e-3, b32
+        Learning curve is actually similar to pre-norm, reaches a 1.7+loss. 
+        Possible reason: for a shallow model with `layers=4`, the post-norm effect could be ignored 
     NoPE vs RoPE
     SwiGLU vs SiLU
 4. Training on OpenWebText dataset

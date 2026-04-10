@@ -60,6 +60,9 @@ def parse_args():
     p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--prompt", type=str)
     p.add_argument("--max_tokens", type=int, default=100_000)
+    # Experiment
+    p.add_argument("--no_norm", type=bool, default=False)
+    p.add_argument("--post_norm", type=bool, default=False)
 
     return p.parse_args()
 
@@ -87,6 +90,8 @@ def load_model(args, device, dtype):
         num_layers=args.num_layers,
         device=device,
         dtype=dtype,
+        no_norm=args.no_norm,
+        post_norm=args.post_norm,
     ).to(device)
     num_params = sum(p.numel() for p in model.parameters())
     log.info(f"Model parameters: {num_params:,}")
