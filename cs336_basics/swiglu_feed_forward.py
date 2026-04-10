@@ -4,6 +4,34 @@ from einops import einsum
 from cs336_basics.linear import Linear
 
 
+class SiluFFN(nn.Module):
+    """
+    d_ff = 4 * d_model
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        d_ff: int,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
+    ):
+        super().__init__()
+        assert d_ff == 4 * d_model
+        self.d_model = d_model
+        self.d_ff = d_ff
+        self.w1 = Linear(d_model, d_ff, device, dtype)
+        self.w2 = Linear(d_ff, d_model, device, dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.shape[-1] == self.d_model
+        silu_w1x = self._silu(self.w1(x))
+        return self.w2(silu_w1x)
+
+    def _silu(self, x: torch.Tensor) -> torch.Tensor:
+        return x / (1 + torch.exp(-x))
+
+
 class SwigluFFN(nn.Module):
     """
     d_ff should be approximately d_model * 8/3

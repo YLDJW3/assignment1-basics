@@ -46,8 +46,28 @@ def save_checkpoint(
         "iteration": iteration,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
+        "hyper_parameter": {
+            "d_model": model.d_model,
+            "d_ff": model.d_ff,
+            "num_heads": model.num_heads,
+            "num_layers": model.num_layers,
+            "context_length": model.context_length,
+            "vocab_size": model.vocab_size,
+            "theta": model.theta,
+            # experiment
+            "no_norm": model.no_norm,
+            "post_norm": model.post_norm,
+            "nope": model.nope,
+            "silu": model.silu,
+        },
     }
     torch.save(state, out)
+
+
+def load_checkpoint_hyper_param(src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes]):
+    state = torch.load(src)
+    assert "hyper_parameter" in state
+    return state["hyper_parameter"]
 
 
 def load_checkpoint(

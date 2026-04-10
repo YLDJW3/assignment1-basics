@@ -63,7 +63,8 @@ def parse_args():
     # Experiment
     p.add_argument("--no_norm", type=bool, default=False)
     p.add_argument("--post_norm", type=bool, default=False)
-
+    p.add_argument("--nope", type=bool, default=False)
+    p.add_argument("--silu", type=bool, default=False)
     return p.parse_args()
 
 
@@ -80,19 +81,29 @@ def load_tokens(path):
 
 
 def load_model(args, device, dtype):
-    model = LM(
-        d_model=args.d_model,
-        num_heads=args.num_heads,
-        theta=args.theta,
-        d_ff=args.d_ff,
-        vocab_size=args.vocab_size,
-        context_length=args.context_length,
-        num_layers=args.num_layers,
-        device=device,
-        dtype=dtype,
-        no_norm=args.no_norm,
-        post_norm=args.post_norm,
-    ).to(device)
+    if args.snapshot_filepath is not None:
+        hyper_param = load_checkpoint_hyper_param(args.snapshot_filepath)
+        model = LM(
+            **hyper_param,
+            device=device,
+            dtype=dtype,
+        ).to(device)
+    else:
+        model = LM(
+            d_model=args.d_model,
+            num_heads=args.num_heads,
+            theta=args.theta,
+            d_ff=args.d_ff,
+            vocab_size=args.vocab_size,
+            context_length=args.context_length,
+            num_layers=args.num_layers,
+            device=device,
+            dtype=dtype,
+            no_norm=args.no_norm,
+            post_norm=args.post_norm,
+            nope=args.nope,
+            silu=args.silu,
+        ).to(device)
     num_params = sum(p.numel() for p in model.parameters())
     log.info(f"Model parameters: {num_params:,}")
     # optimizer

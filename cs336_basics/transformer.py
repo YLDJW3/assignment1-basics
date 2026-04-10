@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from cs336_basics.attention import MultiHeadSelfAttention
-from cs336_basics.swiglu_feed_forward import SwigluFFN
+from cs336_basics.swiglu_feed_forward import SwigluFFN, SiluFFN
 from cs336_basics.rms_normalization import RMSNorm
 from cs336_basics.utils import log
 
@@ -18,6 +18,8 @@ class Transformer(nn.Module):
         dtype: torch.dtype | None = None,
         no_norm: bool = False,
         post_norm: bool = False,
+        nope: bool = False,
+        silu: bool = False,
     ):
         super().__init__()
         self.d_model = d_model
@@ -25,6 +27,8 @@ class Transformer(nn.Module):
         self.d_ff = d_ff
         self.no_norm = no_norm
         self.post_norm = post_norm
+        self.nope = nope
+        self.silu = silu
         self.attn = MultiHeadSelfAttention(
             d_model=d_model,
             num_heads=num_heads,
@@ -33,12 +37,20 @@ class Transformer(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.ffn = SwigluFFN(
-            d_model=d_model,
-            d_ff=d_ff,
-            device=device,
-            dtype=dtype,
-        )
+        if silu:
+            self.ffn = SiluFFN(
+                d_model=d_model,
+                d_ff=d_ff,
+                device=device,
+                dtype=dtype,
+            )
+        else:
+            self.ffn = SwigluFFN(
+                d_model=d_model,
+                d_ff=d_ff,
+                device=device,
+                dtype=dtype,
+            )
         if not self.no_norm:
             self.rms_norm_attn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
             self.rms_norm_ffn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
@@ -46,15 +58,16 @@ class Transformer(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.shape[-1] == self.d_model
         token_positions = torch.arange(x.shape[-2])
+        rope = not self.nope
         if self.no_norm:
             # no_norm
-            x = x + self.attn(x, True, token_positions)
+            x = x + self.attn(x, rope, token_positions)
             return x + self.ffn(x)
         elif self.post_norm:
             # post_norm
-            x = self.rms_norm_attn(x + self.attn(x, True, token_positions))
+            x = self.rms_norm_attn(x + self.attn(x, rope, token_positions))
             return self.rms_norm_ffn(x + self.ffn(x))
         else:
             # default pre-norm
-            x = x + self.attn(self.rms_norm_attn(x), True, token_positions)
+            x = x + self.attn(self.rms_norm_attn(x), rope, token_positions)
             return x + self.ffn(self.rms_norm_ffn(x))
