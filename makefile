@@ -1,7 +1,37 @@
 .PHONY: train-tiny valid-tiny decode-tiny
 
-MODEL ?= "model/final_model_d512_l4_lr_scheduler_batch32.pt"
+MODEL ?= "model/final_model_d512_l4_lr_3e-3_b64.pt"
 PROMPT ?= Once upon a time,
+TEMP ?= 0.1
+TOP_P ?= 0.8
+
+train-no-norm:
+	caffeinate -i nohup uv run python cs336_basics/train.py \
+		--mode train \
+		--name d512_l4_lr_3e-3_b32_no_norm \
+		--train_data data/TinyStoriesV2-GPT4-train-tokens.npy \
+		--vocab_filepath data/TinyStoriesV2-GPT4-train-10_000V-vocab.json \
+		--merge_filepath data/TinyStoriesV2-GPT4-train-10_000V-merge.txt \
+		--checkpoint_dir checkpoint/ \
+		--vocab_size 10_000 \
+		--d_model 512 \
+		--num_heads 16 \
+		--num_layers 4 \
+		--d_ff 1344 \
+		--theta 10_000 \
+		--context_length 256 \
+		--batch_size 32 \
+		--accumulate_batch_size 1 \
+		--max_steps 5000 \
+		--lr_max 3e-3 \
+		--lr_min 3e-4 \
+		--T_w 500 \
+		--T_c 4000 \
+		--log_interval 100 \
+		--valid_interval 10 \
+		--cp_interval 1000 \
+		--device mps \
+		--dtype float32 > train_tiny_lr3e-3_b32_no_norm.log 2>&1 &
 
 train-tiny:
 	caffeinate -i nohup uv run python cs336_basics/train.py \
@@ -63,7 +93,7 @@ decode-tiny:
 		--merge_filepath data/TinyStoriesV2-GPT4-train-10_000V-merge.txt \
 		--prompt "$(PROMPT)" \
 		--max_tokens 1000 \
-		--temperature 0.1 \
-		--top_p 0.9 \
+		--temperature $(TEMP) \
+		--top_p $(TOP_P) \
 		--device mps \
 		--dtype float32

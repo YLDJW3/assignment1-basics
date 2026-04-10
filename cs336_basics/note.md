@@ -354,13 +354,12 @@ input token embeddings -- transformer blocks -- output embedding(norm + linear) 
         `lr_max = 1e-1 with scheduler`: divergence
         `lr_max = 3e-5 with scheduler`: 3.1+loss
     2. Batch size variation`
-        `batch_size = 32`: baseline
+        `batch_size = 32`: 1.6+loss, baseline
         `batch_size = 64`: 0.8+loss
-        `batch_size = 16`: 0.8+loss
+        `batch_size = 16`: 1.8+loss
     3. Decode
-        `temperature`
-        `top_p`
-
+        `temperature`: 0.1-1 fluent, 10 gibberish, 0.1 is fine
+        `top_p`: 1 gibberish, 0.1 deterministic, 0.8 is fine
 3. Architecture modification
     Remove RMSNorm
     Replace with post-norm

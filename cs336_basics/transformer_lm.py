@@ -19,6 +19,7 @@ class LM(nn.Module):
         num_layers: int,
         device=None,
         dtype=None,
+        norm_experiment: bool=False,
     ):
         super().__init__()
         self.d_model = d_model
@@ -28,7 +29,16 @@ class LM(nn.Module):
         self.linear = Linear(d_model, vocab_size, device=device, dtype=dtype)
         self.transformers = nn.Sequential(
             *[
-                Transformer(d_model, num_heads, context_length, theta, d_ff, device=device, dtype=dtype)
+                Transformer(
+                    d_model, 
+                    num_heads, 
+                    context_length, 
+                    theta, 
+                    d_ff, 
+                    device=device, 
+                    dtype=dtype,
+                    norm_experiment=norm_experiment,
+                )
                 for _ in range(num_layers)
             ]
         )

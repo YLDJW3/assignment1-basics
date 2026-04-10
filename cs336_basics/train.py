@@ -110,7 +110,7 @@ def load_model(args, device, dtype):
     return model, opt, start
 
 
-def gradient_clipping(parameters: Iterable[torch.nn.Parameter], maximum_l2_norm: float):
+def gradient_clipping(t: int, parameters: Iterable[torch.nn.Parameter], maximum_l2_norm: float):
     eps = 1e-6
     l2_norm = 0
     for p in parameters:
@@ -121,6 +121,7 @@ def gradient_clipping(parameters: Iterable[torch.nn.Parameter], maximum_l2_norm:
     l2_norm **= 0.5
     if l2_norm > maximum_l2_norm:
         # gradient clipping, scale grad down by factor max_l2_norm / (l2_norm + eps)
+        log.info(f"step {t} gradient clipping, l2_norm {l2_norm} exceeds limit {maximum_l2_norm}")
         factor = maximum_l2_norm / (l2_norm + eps)
         for p in parameters:
             if p.grad is None:
@@ -162,7 +163,7 @@ def train(args):
         loss.backward()
         # only step the optimizer every `accumulate_batch_size`
         if t % args.accumulate_batch_size == 0:
-            gradient_clipping(model.parameters(), args.max_l2_norm)
+            gradient_clipping(t, model.parameters(), args.max_l2_norm)
             opt.step()
             opt.zero_grad()
         # logging

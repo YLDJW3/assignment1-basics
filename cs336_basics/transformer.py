@@ -15,11 +15,13 @@ class Transformer(nn.Module):
         d_ff: int,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
+        norm_experiment: bool = False,
     ):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_ff = d_ff
+        self.norm_experiment = norm_experiment
         self.attn = MultiHeadSelfAttention(
             d_model=d_model,
             num_heads=num_heads,
@@ -34,11 +36,16 @@ class Transformer(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.rms_norm_attn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
-        self.rms_norm_ffn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
+        if not self.norm_experiment:
+            self.rms_norm_attn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
+            self.rms_norm_ffn = RMSNorm(d_model=d_model, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.shape[-1] == self.d_model
         token_positions = torch.arange(x.shape[-2])
-        x = x + self.attn(self.rms_norm_attn(x), True, token_positions)
-        return x + self.ffn(self.rms_norm_ffn(x))
+        if not self.norm_experiment:
+            x = self.rms_norm_attn(x)
+        x = x + self.attn(x, True, token_positions)
+        if not self.norm_experiment:
+            x = self.rms_norm_ffn(x)
+        return x + self.ffn(x)
